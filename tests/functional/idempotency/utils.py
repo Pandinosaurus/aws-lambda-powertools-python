@@ -1,7 +1,9 @@
 import hashlib
-from typing import Any, Dict
+import json
+from typing import Any, Dict, Optional
 
 from botocore import stub
+from pytest import FixtureRequest
 
 from tests.functional.utils import json_serialize
 
@@ -15,7 +17,7 @@ def build_idempotency_put_item_stub(
     data: Dict,
     function_name: str = "test-func",
     function_qualified_name: str = "test_idempotent_lambda_first_execution_event_mutation.<locals>",
-    module_name: str = "functional.idempotency.test_idempotency",
+    module_name: str = "tests.functional.idempotency._boto3.test_idempotency",
     handler_name: str = "lambda_handler",
 ) -> Dict:
     idempotency_key_hash = (
@@ -26,6 +28,7 @@ def build_idempotency_put_item_stub(
             "attribute_not_exists(#id) OR #expiry < :now OR "
             "(#status = :inprogress AND attribute_exists(#in_progress_expiry) AND #in_progress_expiry < :now_in_millis)"
         ),
+        "ReturnValuesOnConditionCheckFailure": "ALL_OLD",
         "ExpressionAttributeNames": {
             "#id": "id",
             "#expiry": "expiration",
@@ -52,7 +55,7 @@ def build_idempotency_update_item_stub(
     handler_response: Dict,
     function_name: str = "test-func",
     function_qualified_name: str = "test_idempotent_lambda_first_execution_event_mutation.<locals>",
-    module_name: str = "functional.idempotency.test_idempotency",
+    module_name: str = "tests.functional.idempotency._boto3.test_idempotency",
     handler_name: str = "lambda_handler",
 ) -> Dict:
     idempotency_key_hash = (
@@ -72,5 +75,32 @@ def build_idempotency_update_item_stub(
         },
         "Key": {"id": {"S": idempotency_key_hash}},
         "TableName": "TEST_TABLE",
-        "UpdateExpression": "SET #response_data = :response_data, " "#expiry = :expiry, #status = :status",
+        "UpdateExpression": "SET #response_data = :response_data, #expiry = :expiry, #status = :status",
     }
+
+
+def build_idempotency_key_id(data: Dict, request: FixtureRequest):
+    return f"test-func.{request.function.__module__}.{request.function.__qualname__}.<locals>.lambda_handler#{hash_idempotency_key(data)}"  # noqa: E501
+
+
+def build_idempotency_put_item_response_stub(
+    data: Dict,
+    expiration: int,
+    status: str,
+    request: FixtureRequest,
+    validation_data: Optional[Any],
+):
+    response = {
+        "Item": {
+            "id": {"S": build_idempotency_key_id(data, request)},
+            "expiration": {"N": expiration},
+            "data": {"S": json.dumps(data)},
+            "status": {"S": status},
+            "validation": {"S": hash_idempotency_key(validation_data)},
+        },
+    }
+
+    if validation_data is not None:
+        response["Item"]["validation"] = {"S": hash_idempotency_key(validation_data)}
+
+    return response

@@ -1,8 +1,10 @@
-import base64
-import json
-from typing import Any, Dict, List
+from __future__ import annotations
+
+from functools import cached_property
+from typing import Any
 
 from aws_lambda_powertools.utilities.data_classes.common import DictWrapper
+from aws_lambda_powertools.utilities.data_classes.shared_functions import base64_decode
 
 
 class BasicProperties(DictWrapper):
@@ -15,7 +17,7 @@ class BasicProperties(DictWrapper):
         return self["contentEncoding"]
 
     @property
-    def headers(self) -> Dict[str, Any]:
+    def headers(self) -> dict[str, Any]:
         return self["headers"]
 
     @property
@@ -83,14 +85,12 @@ class RabbitMessage(DictWrapper):
     @property
     def decoded_data(self) -> str:
         """Decodes the data as a str"""
-        return base64.b64decode(self.data.encode()).decode()
+        return base64_decode(self.data)
 
-    @property
+    @cached_property
     def json_data(self) -> Any:
         """Parses the data as json"""
-        if self._json_data is None:
-            self._json_data = json.loads(self.decoded_data)
-        return self._json_data
+        return self._json_deserializer(self.decoded_data)
 
 
 class RabbitMQEvent(DictWrapper):
@@ -102,7 +102,7 @@ class RabbitMQEvent(DictWrapper):
     - https://aws.amazon.com/blogs/compute/using-amazon-mq-for-rabbitmq-as-an-event-source-for-lambda/
     """
 
-    def __init__(self, data: Dict[str, Any]):
+    def __init__(self, data: dict[str, Any]):
         super().__init__(data)
         self._rmq_messages_by_queue = {
             key: [RabbitMessage(message) for message in messages]
@@ -119,5 +119,5 @@ class RabbitMQEvent(DictWrapper):
         return self["eventSourceArn"]
 
     @property
-    def rmq_messages_by_queue(self) -> Dict[str, List[RabbitMessage]]:
+    def rmq_messages_by_queue(self) -> dict[str, list[RabbitMessage]]:
         return self._rmq_messages_by_queue

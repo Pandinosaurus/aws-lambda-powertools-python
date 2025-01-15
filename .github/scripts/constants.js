@@ -19,6 +19,9 @@ module.exports = Object.freeze({
     "PR_IS_MERGED": process.env.PR_IS_MERGED || "false",
 
     /** @type {string} */
+    "PR_LABELS": process.env.PR_LABELS || "",
+
+    /** @type {string} */
     "LABEL_BLOCK": "do-not-merge",
 
     /** @type {string} */
@@ -31,7 +34,7 @@ module.exports = Object.freeze({
     "LABEL_PENDING_RELEASE": "pending-release",
 
     /** @type {string} */
-    "HANDLE_MAINTAINERS_TEAM": "@awslabs/aws-lambda-powertools-python",
+    "HANDLE_MAINTAINERS_TEAM": "@aws-powertools/powertools-lambda-python",
 
     /** @type {string[]} */
     "IGNORE_AUTHORS": ["dependabot[bot]", "markdownify[bot]"],

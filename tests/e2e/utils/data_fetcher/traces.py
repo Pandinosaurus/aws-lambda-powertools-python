@@ -15,10 +15,10 @@ class TraceSubsegment(BaseModel):
     name: str
     start_time: float
     end_time: float
-    aws: Optional[dict]
-    subsegments: Optional[List["TraceSubsegment"]]
-    annotations: Optional[Dict[str, Any]]
-    metadata: Optional[Dict[str, Dict[str, Any]]]
+    aws: Optional[dict] = None
+    subsegments: Optional[List["TraceSubsegment"]] = None
+    annotations: Optional[Dict[str, Any]] = None
+    metadata: Optional[Dict[str, Dict[str, Any]]] = None
 
 
 class TraceDocument(BaseModel):
@@ -27,10 +27,10 @@ class TraceDocument(BaseModel):
     start_time: float
     end_time: float
     trace_id: str
-    parent_id: Optional[str]
+    parent_id: Optional[str] = None
     aws: Dict
     origin: str
-    subsegments: Optional[List[TraceSubsegment]]
+    subsegments: Optional[List[TraceSubsegment]] = None
 
 
 class TraceFetcher:
@@ -81,7 +81,7 @@ class TraceFetcher:
         self.filter_expression = filter_expression
         self.start_date = start_date
         self.end_date = end_date or self.start_date + timedelta(minutes=5)
-        self.xray_client: XRayClient = xray_client or boto3.client("xray")
+        self.xray_client = xray_client or boto3.client("xray")
         self.trace_documents: Dict[str, TraceDocument] = {}
         self.subsegments: List[TraceSubsegment] = []
         self.exclude_segment_name = exclude_segment_name or self.default_exclude_seg_name
@@ -194,7 +194,7 @@ class TraceFetcher:
         trace_ids = [trace["Id"] for trace in summaries[0]]  # type: ignore[index] # TypedDict not being recognized
         if len(trace_ids) < self.minimum_traces:
             raise ValueError(
-                f"Number of traces found doesn't meet minimum required ({self.minimum_traces}). Repeating..."
+                f"Number of traces found doesn't meet minimum required ({self.minimum_traces}). Repeating...",
             )
 
         return trace_ids

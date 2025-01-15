@@ -7,7 +7,7 @@ description: Utility
 
 Event Source Data Classes utility provides classes self-describing Lambda event sources.
 
-## Key Features
+## Key features
 
 * Type hinting and code completion for common event types
 * Helper functions for decoding/deserializing nested fields
@@ -52,40 +52,64 @@ Same example as above, but using the `event_source` decorator
         if 'helloworld' in event.path and event.http_method == 'GET':
             do_something_with(event.body, user)
     ```
+
+Log Data Event for Troubleshooting
+
+=== "app.py"
+
+    ```python hl_lines="4 8"
+    from aws_lambda_powertools.utilities.data_classes import event_source, APIGatewayProxyEvent
+    from aws_lambda_powertools.logging.logger import Logger
+
+    logger = Logger(service="hello_logs", level="DEBUG")
+
+    @event_source(data_class=APIGatewayProxyEvent)
+    def lambda_handler(event: APIGatewayProxyEvent, context):
+        logger.debug(event)
+    ```
+
 **Autocomplete with self-documented properties and methods**
 
 ![Utilities Data Classes](../media/utilities_data_classes.png)
 
 ## Supported event sources
 
-| Event Source                                                              | Data_class                                         |
-| ------------------------------------------------------------------------- | -------------------------------------------------- |
-| [Active MQ](#active-mq)                                                   | `ActiveMQEvent`                                    |
-| [API Gateway Authorizer](#api-gateway-authorizer)                         | `APIGatewayAuthorizerRequestEvent`                 |
-| [API Gateway Authorizer V2](#api-gateway-authorizer-v2)                   | `APIGatewayAuthorizerEventV2`                      |
-| [API Gateway Proxy](#api-gateway-proxy)                                   | `APIGatewayProxyEvent`                             |
-| [API Gateway Proxy V2](#api-gateway-proxy-v2)                             | `APIGatewayProxyEventV2`                           |
-| [Application Load Balancer](#application-load-balancer)                   | `ALBEvent`                                         |
-| [AppSync Authorizer](#appsync-authorizer)                                 | `AppSyncAuthorizerEvent`                           |
-| [AppSync Resolver](#appsync-resolver)                                     | `AppSyncResolverEvent`                             |
-| [CloudWatch Dashboard Custom Widget](#cloudwatch-dashboard-custom-widget) | `CloudWatchDashboardCustomWidgetEvent`             |
-| [CloudWatch Logs](#cloudwatch-logs)                                       | `CloudWatchLogsEvent`                              |
-| [CodePipeline Job Event](#codepipeline-job)                               | `CodePipelineJobEvent`                             |
-| [Cognito User Pool](#cognito-user-pool)                                   | Multiple available under `cognito_user_pool_event` |
-| [Connect Contact Flow](#connect-contact-flow)                             | `ConnectContactFlowEvent`                          |
-| [DynamoDB streams](#dynamodb-streams)                                     | `DynamoDBStreamEvent`, `DynamoDBRecordEventName`   |
-| [EventBridge](#eventbridge)                                               | `EventBridgeEvent`                                 |
-| [Kafka](#kafka)                                                           | `KafkaEvent`                                       |
-| [Kinesis Data Stream](#kinesis-streams)                                   | `KinesisStreamEvent`                               |
-| [Kinesis Firehose Delivery Stream](#kinesis-firehose-delivery-stream)     | `KinesisFirehoseEvent`                             |
-| [Lambda Function URL](#lambda-function-url)                               | `LambdaFunctionUrlEvent`                           |
-| [Rabbit MQ](#rabbit-mq)                                                   | `RabbitMQEvent`                                    |
-| [S3](#s3)                                                                 | `S3Event`                                          |
-| [S3 Object Lambda](#s3-object-lambda)                                     | `S3ObjectLambdaEvent`                              |
-| [S3 EventBridge Notification](#s3-eventbridge-notification)               | `S3EventBridgeNotificationEvent`                   |
-| [SES](#ses)                                                               | `SESEvent`                                         |
-| [SNS](#sns)                                                               | `SNSEvent`                                         |
-| [SQS](#sqs)                                                               | `SQSEvent`                                         |
+| Event Source                                                                  | Data_class                                         |
+|-------------------------------------------------------------------------------|----------------------------------------------------|
+| [Active MQ](#active-mq)                                                       | `ActiveMQEvent`                                    |
+| [API Gateway Authorizer](#api-gateway-authorizer)                             | `APIGatewayAuthorizerRequestEvent`                 |
+| [API Gateway Authorizer V2](#api-gateway-authorizer-v2)                       | `APIGatewayAuthorizerEventV2`                      |
+| [API Gateway Proxy](#api-gateway-proxy)                                       | `APIGatewayProxyEvent`                             |
+| [API Gateway Proxy V2](#api-gateway-proxy-v2)                                 | `APIGatewayProxyEventV2`                           |
+| [Application Load Balancer](#application-load-balancer)                       | `ALBEvent`                                         |
+| [AppSync Authorizer](#appsync-authorizer)                                     | `AppSyncAuthorizerEvent`                           |
+| [AppSync Resolver](#appsync-resolver)                                         | `AppSyncResolverEvent`                             |
+| [AWS Config Rule](#aws-config-rule)                                           | `AWSConfigRuleEvent`                               |
+| [Bedrock Agent](#bedrock-agent)                                               | `BedrockAgent`                                     |
+| [CloudFormation Custom Resource](#cloudformation-custom-resource)             | `CloudFormationCustomResourceEvent`                |
+| [CloudWatch Alarm State Change Action](#cloudwatch-alarm-state-change-action) | `CloudWatchAlarmEvent`                             |
+| [CloudWatch Dashboard Custom Widget](#cloudwatch-dashboard-custom-widget)     | `CloudWatchDashboardCustomWidgetEvent`             |
+| [CloudWatch Logs](#cloudwatch-logs)                                           | `CloudWatchLogsEvent`                              |
+| [CodeDeploy Lifecycle Hook](#codedeploy-lifecycle-hook)                       | `CodeDeployLifecycleHookEvent`                     |
+| [CodePipeline Job Event](#codepipeline-job)                                   | `CodePipelineJobEvent`                             |
+| [Cognito User Pool](#cognito-user-pool)                                       | Multiple available under `cognito_user_pool_event` |
+| [Connect Contact Flow](#connect-contact-flow)                                 | `ConnectContactFlowEvent`                          |
+| [DynamoDB streams](#dynamodb-streams)                                         | `DynamoDBStreamEvent`, `DynamoDBRecordEventName`   |
+| [EventBridge](#eventbridge)                                                   | `EventBridgeEvent`                                 |
+| [Kafka](#kafka)                                                               | `KafkaEvent`                                       |
+| [Kinesis Data Stream](#kinesis-streams)                                       | `KinesisStreamEvent`                               |
+| [Kinesis Firehose Delivery Stream](#kinesis-firehose-delivery-stream)         | `KinesisFirehoseEvent`                             |
+| [Lambda Function URL](#lambda-function-url)                                   | `LambdaFunctionUrlEvent`                           |
+| [Rabbit MQ](#rabbit-mq)                                                       | `RabbitMQEvent`                                    |
+| [S3](#s3)                                                                     | `S3Event`                                          |
+| [S3 Batch Operations](#s3-batch-operations)                                   | `S3BatchOperationEvent`                            |
+| [S3 Object Lambda](#s3-object-lambda)                                         | `S3ObjectLambdaEvent`                              |
+| [S3 EventBridge Notification](#s3-eventbridge-notification)                   | `S3EventBridgeNotificationEvent`                   |
+| [SES](#ses)                                                                   | `SESEvent`                                         |
+| [SNS](#sns)                                                                   | `SNSEvent`                                         |
+| [SQS](#sqs)                                                                   | `SQSEvent`                                         |
+| [VPC Lattice V2](#vpc-lattice-v2)                                             | `VPCLatticeV2Event`                                |
+| [VPC Lattice V1](#vpc-lattice-v1)                                             | `VPCLatticeEvent`                                  |
 
 ???+ info
     The examples provided below are far from exhaustive - the data classes themselves are designed to provide a form of
@@ -152,7 +176,7 @@ Use **`APIGatewayAuthorizerRequestEvent`** for type `REQUEST` and **`APIGatewayA
 
     @event_source(data_class=APIGatewayAuthorizerRequestEvent)
     def handler(event: APIGatewayAuthorizerRequestEvent, context):
-        user = get_user_by_token(event.get_header_value("Authorization"))
+        user = get_user_by_token(event.headers["Authorization"])
 
         if user is None:
             # No user was found
@@ -179,7 +203,7 @@ Use **`APIGatewayAuthorizerRequestEvent`** for type `REQUEST` and **`APIGatewayA
         if user.get("isAdmin", False):
             policy.allow_all_routes()
         else:
-            policy.allow_route(HttpVerb.GET, "/user-profile")
+            policy.allow_route(HttpVerb.GET.value, "/user-profile")
 
         return policy.asdict()
     ```
@@ -240,7 +264,7 @@ See also [this blog post](https://aws.amazon.com/blogs/compute/introducing-iam-a
 
     @event_source(data_class=APIGatewayAuthorizerEventV2)
     def handler(event: APIGatewayAuthorizerEventV2, context):
-        user = get_user_by_token(event.get_header_value("x-token"))
+        user = get_user_by_token(event.headers["x-token"])
 
         if user is None:
             # No user was found, so we return not authorized
@@ -374,7 +398,7 @@ In this example, we also use the new Logger `correlation_id` and built-in `corre
         event: AppSyncResolverEvent = AppSyncResolverEvent(event)
 
         # Case insensitive look up of request headers
-        x_forwarded_for = event.get_header_value("x-forwarded-for")
+        x_forwarded_for = event.headers.get("x-forwarded-for")
 
         # Support for AppSyncIdentityCognito or AppSyncIdentityIAM identity types
         assert isinstance(event.identity, AppSyncIdentityCognito)
@@ -445,6 +469,42 @@ In this example, we also use the new Logger `correlation_id` and built-in `corre
     }
     ```
 
+### AWS Config Rule
+
+=== "aws_config_rule.py"
+    ```python hl_lines="3 11"
+    --8<-- "examples/event_sources/src/aws_config_rule.py"
+    ```
+
+=== "Event - ItemChanged"
+    ```json
+    --8<-- "examples/event_sources/src/aws_config_rule_item_changed.json"
+    ```
+=== "Event - Oversized"
+    ```json
+    --8<-- "examples/event_sources/src/aws_config_rule_oversized.json"
+    ```
+=== "Event - ScheduledNotification"
+    ```json
+    --8<-- "examples/event_sources/src/aws_config_rule_scheduled.json"
+    ```
+
+### Bedrock Agent
+
+=== "app.py"
+
+    ```python hl_lines="2 8 10"
+    --8<-- "examples/event_sources/src/bedrock_agent_event.py"
+    ```
+
+### CloudFormation Custom Resource
+
+=== "app.py"
+
+    ```python hl_lines="11 13 15 17 19"
+    --8<-- "examples/event_sources/src/cloudformation_custom_resource_handler.py"
+    ```
+
 ### CloudWatch Dashboard Custom Widget
 
 === "app.py"
@@ -477,6 +537,17 @@ In this example, we also use the new Logger `correlation_id` and built-in `corre
         # Alternatively, you can return markdown that will be rendered by CloudWatch
         echo = event.widget_context.params["echo"]
         return { "markdown": f"# {echo}" }
+    ```
+
+### CloudWatch Alarm State Change Action
+
+[CloudWatch supports Lambda as an alarm state change action](https://docs.aws.amazon.com/AmazonCloudWatch/latest/monitoring/AlarmThatSendsEmail.html#alarms-and-actions){target="_blank"}.
+You can use the `CloudWathAlarmEvent` data class to access the fields containing such data as alarm information, current state, and previous state.
+
+=== "app.py"
+
+    ```python hl_lines="2 8"
+    --8<-- "examples/event_sources/src/cloudwatch_alarm_event.py"
     ```
 
 ### CloudWatch Logs
@@ -522,7 +593,7 @@ decompress and parse json data from the event.
         return "nothing to be processed"
     ```
 
-Alternatively, you can use `extract_cloudwatch_logs_from_record` to seamless integrate with the [Batch utility](./batch.md) for more robust log processing.
+Alternatively, you can use `extract_cloudwatch_logs_from_record` to seamless integrate with the [Batch utility](./batch.md){target="_blank"} for more robust log processing.
 
 === "app.py"
 
@@ -543,6 +614,29 @@ Alternatively, you can use `extract_cloudwatch_logs_from_record` to seamless int
     @batch_processor(record_handler=record_handler, processor=processor)
     def lambda_handler(event, context):
         return processor.response()
+    ```
+
+### CodeDeploy LifeCycle Hook
+
+CodeDeploy triggers Lambdas with this event when defined in
+[AppSpec definitions](https://docs.aws.amazon.com/codedeploy/latest/userguide/reference-appspec-file-structure-hooks.html)
+to test applications at different stages of deployment.
+
+=== "app.py"
+    ```python
+    from aws_lambda_powertools import Logger
+    from aws_lambda_powertools.utilities.data_classes import (
+        event_source,
+        CodeDeployLifecycleHookEvent,
+    )
+
+    logger = Logger()
+
+    def lambda_handler(
+        event: CodeDeployLifecycleHookEvent, context: LambdaContext
+    ) -> None:
+        deployment_id = event.deployment_id
+        lifecycle_event_hook_execution_id = event.lifecycle_event_hook_execution_id
     ```
 
 ### CodePipeline Job
@@ -585,7 +679,13 @@ Data classes and utility functions to help create continuous delivery pipelines 
             else:
                 template = event.get_artifact(artifact_name, template_file)
                 # Kick off a stack update or create
-                start_update_or_create(job_id, stack, template)
+                result = start_update_or_create(job_id, stack, template)
+                artifact: io.BytesIO = zip_data(result)
+                event.put_artifact(
+                    artifact_name=event.data.output_artifacts[0].name,
+                    body=artifact,
+                    content_type="application/zip"
+                )
         except Exception as e:
             # If any other exceptions which we didn't expect are raised
             # then fail the job and log the exception message.
@@ -598,21 +698,24 @@ Data classes and utility functions to help create continuous delivery pipelines 
 
 ### Cognito User Pool
 
-Cognito User Pools have several [different Lambda trigger sources](https://docs.aws.amazon.com/cognito/latest/developerguide/cognito-user-identity-pools-working-with-aws-lambda-triggers.html#cognito-user-identity-pools-working-with-aws-lambda-trigger-sources), all of which map to a different data class, which
+Cognito User Pools have several [different Lambda trigger sources](https://docs.aws.amazon.com/cognito/latest/developerguide/cognito-user-identity-pools-working-with-aws-lambda-triggers.html#cognito-user-identity-pools-working-with-aws-lambda-trigger-sources){target="_blank"}, all of which map to a different data class, which
 can be imported from `aws_lambda_powertools.data_classes.cognito_user_pool_event`:
 
-| Trigger/Event Source  | Data Class                                                                     |
-| --------------------- | ------------------------------------------------------------------------------ |
-| Custom message event  | `data_classes.cognito_user_pool_event.CustomMessageTriggerEvent`               |
-| Post authentication   | `data_classes.cognito_user_pool_event.PostAuthenticationTriggerEvent`          |
-| Post confirmation     | `data_classes.cognito_user_pool_event.PostConfirmationTriggerEvent`            |
-| Pre authentication    | `data_classes.cognito_user_pool_event.PreAuthenticationTriggerEvent`           |
-| Pre sign-up           | `data_classes.cognito_user_pool_event.PreSignUpTriggerEvent`                   |
-| Pre token generation  | `data_classes.cognito_user_pool_event.PreTokenGenerationTriggerEvent`          |
-| User migration        | `data_classes.cognito_user_pool_event.UserMigrationTriggerEvent`               |
-| Define Auth Challenge | `data_classes.cognito_user_pool_event.DefineAuthChallengeTriggerEvent`         |
-| Create Auth Challenge | `data_classes.cognito_user_pool_event.CreateAuthChallengeTriggerEvent`         |
-| Verify Auth Challenge | `data_classes.cognito_user_pool_event.VerifyAuthChallengeResponseTriggerEvent` |
+| Trigger/Event Source    | Data Class                                                                     |
+| ---------------------   | ------------------------------------------------------------------------------ |
+| Custom message event    | `data_classes.cognito_user_pool_event.CustomMessageTriggerEvent`               |
+| Post authentication     | `data_classes.cognito_user_pool_event.PostAuthenticationTriggerEvent`          |
+| Post confirmation       | `data_classes.cognito_user_pool_event.PostConfirmationTriggerEvent`            |
+| Pre authentication      | `data_classes.cognito_user_pool_event.PreAuthenticationTriggerEvent`           |
+| Pre sign-up             | `data_classes.cognito_user_pool_event.PreSignUpTriggerEvent`                   |
+| Pre token generation    | `data_classes.cognito_user_pool_event.PreTokenGenerationTriggerEvent`          |
+| Pre token generation V2 | `data_classes.cognito_user_pool_event.PreTokenGenerationV2TriggerEvent`        |
+| User migration          | `data_classes.cognito_user_pool_event.UserMigrationTriggerEvent`               |
+| Define Auth Challenge   | `data_classes.cognito_user_pool_event.DefineAuthChallengeTriggerEvent`         |
+| Create Auth Challenge   | `data_classes.cognito_user_pool_event.CreateAuthChallengeTriggerEvent`         |
+| Verify Auth Challenge   | `data_classes.cognito_user_pool_event.VerifyAuthChallengeResponseTriggerEvent` |
+| Custom Email Sender     | `data_classes.cognito_user_pool_event.CustomEmailSenderTriggerEvent`           |
+| Custom SMS Sender       | `data_classes.cognito_user_pool_event.CustomSMSSenderTriggerEvent`             |
 
 #### Post Confirmation Example
 
@@ -937,17 +1040,38 @@ or plain text, depending on the original payload.
 
 ### Kinesis Firehose delivery stream
 
-Kinesis Firehose Data Transformation can use a Lambda Function to modify the records
-inline, and re-emit them back to the Delivery Stream.
+When using Kinesis Firehose, you can use a Lambda function to [perform data transformation](https://docs.aws.amazon.com/firehose/latest/dev/data-transformation.html){target="_blank"}. For each transformed record, you can choose to either:
 
-Similar to Kinesis Data Streams, the events contain base64 encoded data. You can use the helper
-function to access the data either as json or plain text, depending on the original payload.
+* **A)** Put them back to the delivery stream (default)
+* **B)** Drop them so consumers don't receive them (e.g., data validation)
+* **C)** Indicate a record failed data transformation and should be retried
 
-=== "app.py"
+To do that, you can use `KinesisFirehoseDataTransformationResponse` class along with helper functions to make it easier to decode and encode base64 data in the stream.
 
-    ```python
+=== "Transforming streaming records"
+
+    ```python hl_lines="2-3 12 28"
     --8<-- "examples/event_sources/src/kinesis_firehose_delivery_stream.py"
     ```
+
+    1. **Ingesting JSON payloads?** <br><br> Use `record.data_as_json` to easily deserialize them.
+    2. For your convenience, `base64_from_json` serializes a dict to JSON, then encode as base64 data.
+
+=== "Dropping invalid records"
+
+    ```python hl_lines="5-6 16 34"
+    --8<-- "examples/event_sources/src/kinesis_firehose_response_drop.py"
+    ```
+
+    1. This exception would be generated from `record.data_as_json` if invalid payload.
+
+=== "Indicating a processing failure"
+
+    ```python hl_lines="2-3 33"
+    --8<-- "examples/event_sources/src/kinesis_firehose_response_exception.py"
+    ```
+
+    1. This record will now be sent to your [S3 bucket in the `processing-failed` folder](https://docs.aws.amazon.com/firehose/latest/dev/data-transformation.html#data-transformation-failure-handling){target="_blank"}.
 
 ### Lambda Function URL
 
@@ -1007,6 +1131,16 @@ for more details.
             do_something_with(f"{bucket_name}/{object_key}")
     ```
 
+### S3 Batch Operations
+
+This example is based on the AWS S3 Batch Operations documentation [Example Lambda function for S3 Batch Operations](https://docs.aws.amazon.com/AmazonS3/latest/userguide/batch-ops-invoke-lambda.html){target="_blank"}.
+
+=== "app.py"
+
+    ```python hl_lines="4 8 10 20 25 27 29 33"
+    --8<-- "examples/event_sources/src/s3_batch_operation.py"
+    ```
+
 ### S3 Object Lambda
 
 This example is based on the AWS Blog post [Introducing Amazon S3 Object Lambda – Use Your Code to Process Data as It Is Being Retrieved from S3](https://aws.amazon.com/blogs/aws/introducing-amazon-s3-object-lambda-use-your-code-to-process-data-as-it-is-being-retrieved-from-s3/){target="_blank"}.
@@ -1022,7 +1156,7 @@ This example is based on the AWS Blog post [Introducing Amazon S3 Object Lambda 
     from aws_lambda_powertools.utilities.data_classes.s3_object_event import S3ObjectLambdaEvent
 
     logger = Logger()
-    session = boto3.Session()
+    session = boto3.session.Session()
     s3 = session.client("s3")
 
     @logger.inject_lambda_context(correlation_id_path=S3_OBJECT_LAMBDA, log_event=True)
@@ -1055,6 +1189,22 @@ This example is based on the AWS Blog post [Introducing Amazon S3 Object Lambda 
     def lambda_handler(event: S3EventBridgeNotificationEvent, context):
         bucket_name = event.detail.bucket.name
         file_key = event.detail.object.key
+    ```
+
+### Secrets Manager
+
+AWS Secrets Manager rotation uses an AWS Lambda function to update the secret. [Click here](https://docs.aws.amazon.com/secretsmanager/latest/userguide/rotating-secrets.html){target="_blank"} for more information about rotating AWS Secrets Manager secrets.
+
+=== "app.py"
+
+    ```python hl_lines="2 7 11"
+    --8<-- "examples/event_sources/src/secrets_manager.py"
+    ```
+
+=== "Secrets Manager Example Event"
+
+    ```json
+    --8<-- "tests/events/secretsManagerEvent.json"
     ```
 
 ### SES
@@ -1103,4 +1253,65 @@ This example is based on the AWS Blog post [Introducing Amazon S3 Object Lambda 
         # Multiple records can be delivered in a single event
         for record in event.records:
             do_something_with(record.body)
+    ```
+
+### VPC Lattice V2
+
+You can register your Lambda functions as targets within an Amazon VPC Lattice service network. By doing this, your Lambda function becomes a service within the network, and clients that have access to the VPC Lattice service network can call your service using [Payload V2](https://docs.aws.amazon.com/lambda/latest/dg/services-vpc-lattice.html#vpc-lattice-receiving-events){target="_blank"}.
+
+[Click here](https://docs.aws.amazon.com/lambda/latest/dg/services-vpc-lattice.html){target="_blank"} for more information about using AWS Lambda with Amazon VPC Lattice.
+
+=== "app.py"
+
+    ```python hl_lines="2 8"
+    --8<-- "examples/event_sources/src/vpc_lattice_v2.py"
+    ```
+
+=== "Lattice Example Event"
+
+    ```json
+    --8<-- "examples/event_sources/src/vpc_lattice_v2_payload.json"
+    ```
+
+### VPC Lattice V1
+
+You can register your Lambda functions as targets within an Amazon VPC Lattice service network. By doing this, your Lambda function becomes a service within the network, and clients that have access to the VPC Lattice service network can call your service.
+
+[Click here](https://docs.aws.amazon.com/lambda/latest/dg/services-vpc-lattice.html){target="_blank"} for more information about using AWS Lambda with Amazon VPC Lattice.
+
+=== "app.py"
+
+    ```python hl_lines="2 8"
+    --8<-- "examples/event_sources/src/vpc_lattice.py"
+    ```
+
+=== "Lattice Example Event"
+
+    ```json
+    --8<-- "examples/event_sources/src/vpc_lattice_payload.json"
+    ```
+
+## Advanced
+
+### Debugging
+
+Alternatively, you can print out the fields to obtain more information. All classes come with a `__str__` method that generates a dictionary string which can be quite useful for debugging.
+
+However, certain events may contain sensitive fields such as `secret_access_key` and `session_token`, which are labeled as `[SENSITIVE]` to prevent any accidental disclosure of confidential information.
+
+!!! warning "If we fail to deserialize a field value (e.g., JSON), they will appear as `[Cannot be deserialized]`"
+
+=== "debugging.py"
+    ```python hl_lines="9"
+    --8<-- "examples/event_sources/src/debugging.py"
+    ```
+
+=== "debugging_event.json"
+    ```json hl_lines="28 29"
+    --8<-- "examples/event_sources/src/debugging_event.json"
+    ```
+=== "debugging_output.json"
+    ```json hl_lines="16 17 18"
+    --8<-- "examples/event_sources/src/debugging_output.json"
+    ```
     ```

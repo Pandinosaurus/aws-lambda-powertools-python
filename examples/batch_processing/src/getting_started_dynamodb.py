@@ -11,17 +11,19 @@ from aws_lambda_powertools.utilities.data_classes.dynamo_db_stream_event import 
 )
 from aws_lambda_powertools.utilities.typing import LambdaContext
 
-processor = BatchProcessor(event_type=EventType.DynamoDBStreams)
+processor = BatchProcessor(event_type=EventType.DynamoDBStreams)  # (1)!
 tracer = Tracer()
 logger = Logger()
 
 
 @tracer.capture_method
 def record_handler(record: DynamoDBRecord):
-    logger.info(record.dynamodb.new_image)  # type: ignore[union-attr]
-    payload: dict = json.loads(record.dynamodb.new_image.get("Message"))  # type: ignore[union-attr,arg-type]
-    logger.info(payload)
-    ...
+    if record.dynamodb and record.dynamodb.new_image:
+        logger.info(record.dynamodb.new_image)
+        message = record.dynamodb.new_image.get("Message")
+        if message:
+            payload: dict = json.loads(message)
+            logger.info(payload)
 
 
 @logger.inject_lambda_context

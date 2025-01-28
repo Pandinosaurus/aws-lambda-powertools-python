@@ -1,13 +1,22 @@
+from __future__ import annotations
+
 import enum
 import re
-from typing import Any, Dict, List, Optional
+import warnings
+from typing import Any, overload
+
+from typing_extensions import deprecated
 
 from aws_lambda_powertools.utilities.data_classes.common import (
     BaseRequestContext,
     BaseRequestContextV2,
+    CaseInsensitiveDict,
     DictWrapper,
+)
+from aws_lambda_powertools.utilities.data_classes.shared_functions import (
     get_header_value,
 )
+from aws_lambda_powertools.warnings import PowertoolsDeprecationWarning
 
 
 class APIGatewayRouteArn:
@@ -21,8 +30,9 @@ class APIGatewayRouteArn:
         stage: str,
         http_method: str,
         resource: str,
+        partition: str = "aws",
     ):
-        self.partition = "aws"
+        self.partition = partition
         self.region = region
         self.aws_account_id = aws_account_id
         self.api_id = api_id
@@ -55,6 +65,7 @@ def parse_api_gateway_arn(arn: str) -> APIGatewayRouteArn:
     arn_parts = arn.split(":")
     api_gateway_arn_parts = arn_parts[5].split("/")
     return APIGatewayRouteArn(
+        partition=arn_parts[1],
         region=arn_parts[3],
         aws_account_id=arn_parts[4],
         api_id=api_gateway_arn_parts[0],
@@ -139,30 +150,52 @@ class APIGatewayAuthorizerRequestEvent(DictWrapper):
         return self["httpMethod"]
 
     @property
-    def headers(self) -> Dict[str, str]:
-        return self["headers"]
+    def headers(self) -> dict[str, str]:
+        return CaseInsensitiveDict(self["headers"])
 
     @property
-    def query_string_parameters(self) -> Dict[str, str]:
+    def query_string_parameters(self) -> dict[str, str]:
         return self["queryStringParameters"]
 
     @property
-    def path_parameters(self) -> Dict[str, str]:
+    def path_parameters(self) -> dict[str, str]:
         return self["pathParameters"]
 
     @property
-    def stage_variables(self) -> Dict[str, str]:
+    def stage_variables(self) -> dict[str, str]:
         return self["stageVariables"]
 
     @property
     def request_context(self) -> BaseRequestContext:
         return BaseRequestContext(self._data)
 
+    @overload
     def get_header_value(
-        self, name: str, default_value: Optional[str] = None, case_sensitive: Optional[bool] = False
-    ) -> Optional[str]:
-        """Get header value by name
+        self,
+        name: str,
+        default_value: str,
+        case_sensitive: bool = False,
+    ) -> str: ...
 
+    @overload
+    def get_header_value(
+        self,
+        name: str,
+        default_value: str | None = None,
+        case_sensitive: bool = False,
+    ) -> str | None: ...
+
+    @deprecated(
+        "`get_header_value` function is deprecated; Access headers directly using event.headers.get('HeaderName')",
+        category=None,
+    )
+    def get_header_value(
+        self,
+        name: str,
+        default_value: str | None = None,
+        case_sensitive: bool = False,
+    ) -> str | None:
+        """Get header value by name
         Parameters
         ----------
         name: str
@@ -176,6 +209,13 @@ class APIGatewayAuthorizerRequestEvent(DictWrapper):
         str, optional
             Header value
         """
+        warnings.warn(
+            "The `get_header_value` function is deprecated in V3 and the `case_sensitive` parameter "
+            "no longer has any effect. This function will be removed in the next major version. "
+            "Instead, access headers directly using event.headers.get('HeaderName'), which is case insensitive.",
+            category=PowertoolsDeprecationWarning,
+            stacklevel=2,
+        )
         return get_header_value(self.headers, name, default_value, case_sensitive)
 
 
@@ -211,14 +251,14 @@ class APIGatewayAuthorizerEventV2(DictWrapper):
         return parse_api_gateway_arn(self.route_arn)
 
     @property
-    def identity_source(self) -> Optional[List[str]]:
+    def identity_source(self) -> list[str]:
         """The identity source for which authorization is requested.
 
         For a REQUEST authorizer, this is optional. The value is a set of one or more mapping expressions of the
         specified request parameters. The identity source can be headers, query string parameters, stage variables,
         and context parameters.
         """
-        return self.get("identitySource")
+        return self.get("identitySource") or []
 
     @property
     def route_key(self) -> str:
@@ -235,17 +275,17 @@ class APIGatewayAuthorizerEventV2(DictWrapper):
         return self["rawQueryString"]
 
     @property
-    def cookies(self) -> List[str]:
+    def cookies(self) -> list[str]:
         """Cookies"""
         return self["cookies"]
 
     @property
-    def headers(self) -> Dict[str, str]:
+    def headers(self) -> dict[str, str]:
         """Http headers"""
-        return self["headers"]
+        return CaseInsensitiveDict(self["headers"])
 
     @property
-    def query_string_parameters(self) -> Dict[str, str]:
+    def query_string_parameters(self) -> dict[str, str]:
         return self["queryStringParameters"]
 
     @property
@@ -253,18 +293,35 @@ class APIGatewayAuthorizerEventV2(DictWrapper):
         return BaseRequestContextV2(self._data)
 
     @property
-    def path_parameters(self) -> Optional[Dict[str, str]]:
-        return self.get("pathParameters")
+    def path_parameters(self) -> dict[str, str]:
+        return self.get("pathParameters") or {}
 
     @property
-    def stage_variables(self) -> Optional[Dict[str, str]]:
-        return self.get("stageVariables")
+    def stage_variables(self) -> dict[str, str]:
+        return self.get("stageVariables") or {}
 
+    @overload
+    def get_header_value(self, name: str, default_value: str, case_sensitive: bool = False) -> str: ...
+
+    @overload
     def get_header_value(
-        self, name: str, default_value: Optional[str] = None, case_sensitive: Optional[bool] = False
-    ) -> Optional[str]:
-        """Get header value by name
+        self,
+        name: str,
+        default_value: str | None = None,
+        case_sensitive: bool = False,
+    ) -> str | None: ...
 
+    @deprecated(
+        "`get_header_value` function is deprecated; Access headers directly using event.headers.get('HeaderName')",
+        category=None,
+    )
+    def get_header_value(
+        self,
+        name: str,
+        default_value: str | None = None,
+        case_sensitive: bool = False,
+    ) -> str | None:
+        """Get header value by name
         Parameters
         ----------
         name: str
@@ -278,6 +335,13 @@ class APIGatewayAuthorizerEventV2(DictWrapper):
         str, optional
             Header value
         """
+        warnings.warn(
+            "The `get_header_value` function is deprecated in V3 and the `case_sensitive` parameter "
+            "no longer has any effect. This function will be removed in the next major version. "
+            "Instead, access headers directly using event.headers.get('HeaderName'), which is case insensitive.",
+            category=PowertoolsDeprecationWarning,
+            stacklevel=2,
+        )
         return get_header_value(self.headers, name, default_value, case_sensitive)
 
 
@@ -291,7 +355,7 @@ class APIGatewayAuthorizerResponseV2:
         is authorized to make calls to the GraphQL API. If this value is
         true, execution of the GraphQL API continues. If this value is false,
         an UnauthorizedException is raised
-    context: Dict[str, Any], optional
+    context: dict[str, Any], optional
         A JSON object visible as `event.requestContext.authorizer` lambda event
 
         The context object only supports key-value pairs. Nested keys are not supported.
@@ -302,14 +366,14 @@ class APIGatewayAuthorizerResponseV2:
     def __init__(
         self,
         authorize: bool = False,
-        context: Optional[Dict[str, Any]] = None,
+        context: dict[str, Any] | None = None,
     ):
         self.authorize = authorize
         self.context = context
 
     def asdict(self) -> dict:
         """Return the response as a dict"""
-        response: Dict = {"isAuthorized": self.authorize}
+        response: dict = {"isAuthorized": self.authorize}
 
         if self.context:
             response["context"] = self.context
@@ -339,7 +403,7 @@ DENY_ALL_RESPONSE = {
                 "Action": "execute-api:Invoke",
                 "Effect": "Deny",
                 "Resource": ["*"],
-            }
+            },
         ],
     },
 }
@@ -367,8 +431,9 @@ class APIGatewayAuthorizerResponse:
         aws_account_id: str,
         api_id: str,
         stage: str,
-        context: Optional[Dict] = None,
-        usage_identifier_key: Optional[str] = None,
+        context: dict | None = None,
+        usage_identifier_key: str | None = None,
+        partition: str = "aws",
     ):
         """
         Parameters
@@ -394,13 +459,16 @@ class APIGatewayAuthorizerResponse:
             greedily expand over '/' or other separators.
             See https://docs.aws.amazon.com/IAM/latest/UserGuide/reference_policies_elements_resource.html for more
             details.
-        context : Dict, optional
+        context : dict, optional
             Optional, context.
             Note: only names of type string and values of type int, string or boolean are supported
         usage_identifier_key: str, optional
             If the API uses a usage plan (the apiKeySource is set to `AUTHORIZER`), the Lambda authorizer function
             must return one of the usage plan's API keys as the usageIdentifierKey property value.
             > **Note:** This only applies for REST APIs.
+        partition: str, optional
+            Optional, arn partition.
+            See https://docs.aws.amazon.com/IAM/latest/UserGuide/reference-arns.html
         """
         self.principal_id = principal_id
         self.region = region
@@ -409,17 +477,18 @@ class APIGatewayAuthorizerResponse:
         self.stage = stage
         self.context = context
         self.usage_identifier_key = usage_identifier_key
-        self._allow_routes: List[Dict] = []
-        self._deny_routes: List[Dict] = []
+        self._allow_routes: list[dict] = []
+        self._deny_routes: list[dict] = []
         self._resource_pattern = re.compile(self.path_regex)
+        self.partition = partition
 
     @staticmethod
     def from_route_arn(
         arn: str,
         principal_id: str,
-        context: Optional[Dict] = None,
-        usage_identifier_key: Optional[str] = None,
-    ) -> "APIGatewayAuthorizerResponse":
+        context: dict | None = None,
+        usage_identifier_key: str | None = None,
+    ) -> APIGatewayAuthorizerResponse:
         parsed_arn = parse_api_gateway_arn(arn)
         return APIGatewayAuthorizerResponse(
             principal_id,
@@ -431,7 +500,7 @@ class APIGatewayAuthorizerResponse:
             usage_identifier_key,
         )
 
-    def _add_route(self, effect: str, http_method: str, resource: str, conditions: Optional[List[Dict]] = None):
+    def _add_route(self, effect: str, http_method: str, resource: str, conditions: list[dict] | None = None):
         """Adds a route to the internal lists of allowed or denied routes. Each object in
         the internal list contains a resource ARN and a condition statement. The condition
         statement can be null."""
@@ -443,7 +512,13 @@ class APIGatewayAuthorizerResponse:
             raise ValueError(f"Invalid resource path: {resource}. Path should match {self.path_regex}")
 
         resource_arn = APIGatewayRouteArn(
-            self.region, self.aws_account_id, self.api_id, self.stage, http_method, resource
+            self.region,
+            self.aws_account_id,
+            self.api_id,
+            self.stage,
+            http_method,
+            resource,
+            self.partition,
         ).arn
 
         route = {"resourceArn": resource_arn, "conditions": conditions}
@@ -454,17 +529,17 @@ class APIGatewayAuthorizerResponse:
             self._deny_routes.append(route)
 
     @staticmethod
-    def _get_empty_statement(effect: str) -> Dict[str, Any]:
+    def _get_empty_statement(effect: str) -> dict[str, Any]:
         """Returns an empty statement object prepopulated with the correct action and the desired effect."""
         return {"Action": "execute-api:Invoke", "Effect": effect.capitalize(), "Resource": []}
 
-    def _get_statement_for_effect(self, effect: str, routes: List[Dict]) -> List[Dict]:
+    def _get_statement_for_effect(self, effect: str, routes: list[dict]) -> list[dict]:
         """This function loops over an array of objects containing a `resourceArn` and
         `conditions` statement and generates the array of statements for the policy."""
         if not routes:
             return []
 
-        statements: List[Dict] = []
+        statements: list[dict] = []
         statement = self._get_empty_statement(effect)
 
         for route in routes:
@@ -503,7 +578,7 @@ class APIGatewayAuthorizerResponse:
 
         self._add_route(effect="Deny", http_method=http_method, resource="*")
 
-    def allow_route(self, http_method: str, resource: str, conditions: Optional[List[Dict]] = None):
+    def allow_route(self, http_method: str, resource: str, conditions: list[dict] | None = None):
         """Adds an API Gateway method (Http verb + Resource path) to the list of allowed
         methods for the policy.
 
@@ -511,7 +586,7 @@ class APIGatewayAuthorizerResponse:
         conditions here: https://docs.aws.amazon.com/IAM/latest/UserGuide/reference_policies_elements.html#Condition"""
         self._add_route(effect="Allow", http_method=http_method, resource=resource, conditions=conditions)
 
-    def deny_route(self, http_method: str, resource: str, conditions: Optional[List[Dict]] = None):
+    def deny_route(self, http_method: str, resource: str, conditions: list[dict] | None = None):
         """Adds an API Gateway method (Http verb + Resource path) to the list of denied
         methods for the policy.
 
@@ -519,7 +594,7 @@ class APIGatewayAuthorizerResponse:
         conditions here: https://docs.aws.amazon.com/IAM/latest/UserGuide/reference_policies_elements.html#Condition"""
         self._add_route(effect="Deny", http_method=http_method, resource=resource, conditions=conditions)
 
-    def asdict(self) -> Dict[str, Any]:
+    def asdict(self) -> dict[str, Any]:
         """Generates the policy document based on the internal lists of allowed and denied
         conditions. This will generate a policy with two main statements for the effect:
         one statement for Allow and one statement for Deny.
@@ -527,7 +602,7 @@ class APIGatewayAuthorizerResponse:
         if len(self._allow_routes) == 0 and len(self._deny_routes) == 0:
             raise ValueError("No statements defined for the policy")
 
-        response: Dict[str, Any] = {
+        response: dict[str, Any] = {
             "principalId": self.principal_id,
             "policyDocument": {"Version": "2012-10-17", "Statement": []},
         }

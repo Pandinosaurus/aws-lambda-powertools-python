@@ -20,7 +20,6 @@ from aws_cdk.aws_lambda import (
     Tracing,
 )
 from filelock import FileLock
-from mypy_boto3_cloudformation import CloudFormationClient
 
 from tests.e2e.utils.base import InfrastructureProvider
 from tests.e2e.utils.constants import (
@@ -43,8 +42,8 @@ class BaseInfrastructure(InfrastructureProvider):
         self.stack_outputs: Dict[str, str] = {}
 
         # NOTE: CDK stack account and region are tokens, we need to resolve earlier
-        self.session = boto3.Session()
-        self.cfn: CloudFormationClient = self.session.client("cloudformation")
+        self.session = boto3.session.Session()
+        self.cfn = self.session.client("cloudformation")
         self.account_id = self.session.client("sts").get_caller_identity()["Account"]
         self.region = self.session.region_name
 
@@ -61,11 +60,13 @@ class BaseInfrastructure(InfrastructureProvider):
 
         if not self._feature_infra_file.exists():
             raise FileNotFoundError(
-                "You must have your infrastructure defined in 'tests/e2e/<feature>/infrastructure.py'."
+                "You must have your infrastructure defined in 'tests/e2e/<feature>/infrastructure.py'.",
             )
 
     def create_lambda_functions(
-        self, function_props: Optional[Dict] = None, architecture: Architecture = Architecture.X86_64
+        self,
+        function_props: Optional[Dict] = None,
+        architecture: Architecture = Architecture.X86_64,
     ) -> Dict[str, Function]:
         """Create Lambda functions available under handlers_dir
 
@@ -95,12 +96,12 @@ class BaseInfrastructure(InfrastructureProvider):
         self.create_lambda_functions()
         ```
 
-        Creating Lambda functions and override runtime to Python 3.10
+        Creating Lambda functions and override runtime to Python 3.13
 
         ```python
         from aws_cdk.aws_lambda import Runtime
 
-        self.create_lambda_functions(function_props={"runtime": Runtime.PYTHON_3_10)
+        self.create_lambda_functions(function_props={"runtime": Runtime.PYTHON_3_13)
         ```
         """
         if not self._handlers_dir.exists():
@@ -112,10 +113,11 @@ class BaseInfrastructure(InfrastructureProvider):
             "aws-lambda-powertools-e2e-test",
             layer_version_name="aws-lambda-powertools-e2e-test",
             compatible_runtimes=[
-                Runtime.PYTHON_3_7,
-                Runtime.PYTHON_3_8,
                 Runtime.PYTHON_3_9,
                 Runtime.PYTHON_3_10,
+                Runtime.PYTHON_3_11,
+                Runtime.PYTHON_3_12,
+                Runtime.PYTHON_3_13,
             ],
             compatible_architectures=[architecture],
             code=Code.from_asset(path=layer_build),
@@ -247,16 +249,18 @@ class BaseInfrastructure(InfrastructureProvider):
     def _determine_runtime_version(self) -> Runtime:
         """Determine Python runtime version based on the current Python interpreter"""
         version = sys.version_info
-        if version.major == 3 and version.minor == 7:
-            return Runtime.PYTHON_3_7
-        elif version.major == 3 and version.minor == 8:
-            return Runtime.PYTHON_3_8
-        elif version.major == 3 and version.minor == 9:
+        if version.major == 3 and version.minor == 9:
             return Runtime.PYTHON_3_9
         elif version.major == 3 and version.minor == 10:
             return Runtime.PYTHON_3_10
+        elif version.major == 3 and version.minor == 11:
+            return Runtime.PYTHON_3_11
+        elif version.major == 3 and version.minor == 12:
+            return Runtime.PYTHON_3_12
+        elif version.major == 3 and version.minor == 13:
+            return Runtime.PYTHON_3_13
         else:
-            raise Exception(f"Unsupported Python version: {version}")
+            raise ValueError(f"Unsupported Python version: {version}")
 
     def create_resources(self) -> None:
         """Create any necessary CDK resources. It'll be called before deploy

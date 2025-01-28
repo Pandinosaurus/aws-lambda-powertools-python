@@ -3,9 +3,9 @@ import json
 import logging
 import zlib
 from datetime import datetime
-from typing import List, Type, Union
+from typing import List, Optional, Type, Union
 
-from pydantic import BaseModel, Field, validator
+from pydantic import BaseModel, Field, field_validator
 
 logger = logging.getLogger(__name__)
 
@@ -23,12 +23,13 @@ class CloudWatchLogsDecode(BaseModel):
     logStream: str
     subscriptionFilters: List[str]
     logEvents: List[CloudWatchLogsLogEvent]
+    policyLevel: Optional[str] = None
 
 
 class CloudWatchLogsData(BaseModel):
-    decoded_data: CloudWatchLogsDecode = Field(None, alias="data")
+    decoded_data: CloudWatchLogsDecode = Field(..., alias="data")
 
-    @validator("decoded_data", pre=True, allow_reuse=True)
+    @field_validator("decoded_data", mode="before")
     def prepare_data(cls, value):
         try:
             logger.debug("Decoding base64 cloudwatch log data before parsing")

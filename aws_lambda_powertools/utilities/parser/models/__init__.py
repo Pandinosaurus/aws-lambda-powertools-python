@@ -1,11 +1,24 @@
 from .alb import AlbModel, AlbRequestContext, AlbRequestContextData
 from .apigw import (
+    ApiGatewayAuthorizerRequest,
+    ApiGatewayAuthorizerToken,
     APIGatewayEventAuthorizer,
     APIGatewayEventIdentity,
     APIGatewayEventRequestContext,
     APIGatewayProxyEventModel,
 )
+from .apigw_websocket import (
+    APIGatewayWebSocketConnectEventModel,
+    APIGatewayWebSocketConnectEventRequestContext,
+    APIGatewayWebSocketDisconnectEventModel,
+    APIGatewayWebSocketDisconnectEventRequestContext,
+    APIGatewayWebSocketEventIdentity,
+    APIGatewayWebSocketEventRequestContextBase,
+    APIGatewayWebSocketMessageEventModel,
+    APIGatewayWebSocketMessageEventRequestContext,
+)
 from .apigwv2 import (
+    ApiGatewayAuthorizerRequestV2,
     APIGatewayProxyEventV2Model,
     RequestContextV2,
     RequestContextV2Authorizer,
@@ -13,6 +26,19 @@ from .apigwv2 import (
     RequestContextV2AuthorizerIamCognito,
     RequestContextV2AuthorizerJwt,
     RequestContextV2Http,
+)
+from .bedrock_agent import (
+    BedrockAgentEventModel,
+    BedrockAgentModel,
+    BedrockAgentPropertyModel,
+    BedrockAgentRequestBodyModel,
+    BedrockAgentRequestMediaModel,
+)
+from .cloudformation_custom_resource import (
+    CloudFormationCustomResourceBaseModel,
+    CloudFormationCustomResourceCreateModel,
+    CloudFormationCustomResourceDeleteModel,
+    CloudFormationCustomResourceUpdateModel,
 )
 from .cloudwatch import (
     CloudWatchLogsData,
@@ -42,6 +68,7 @@ from .kinesis_firehose import (
     KinesisFirehoseRecord,
     KinesisFirehoseRecordMetadata,
 )
+from .kinesis_firehose_sqs import KinesisFirehoseSqsModel, KinesisFirehoseSqsRecord
 from .lambda_function_url import LambdaFunctionUrlModel
 from .s3 import (
     S3EventNotificationEventBridgeDetailModel,
@@ -49,6 +76,15 @@ from .s3 import (
     S3EventNotificationObjectModel,
     S3Model,
     S3RecordModel,
+)
+from .s3_batch_operation import (
+    S3BatchOperationJobModel,
+    S3BatchOperationModel,
+    S3BatchOperationTaskModel,
+)
+from .s3_event_notification import (
+    S3SqsEventNotificationModel,
+    S3SqsEventNotificationRecordModel,
 )
 from .s3_object_event import (
     S3ObjectConfiguration,
@@ -73,9 +109,21 @@ from .ses import (
 )
 from .sns import SnsModel, SnsNotificationModel, SnsRecordModel
 from .sqs import SqsAttributesModel, SqsModel, SqsMsgAttributeModel, SqsRecordModel
+from .transfer_family import TransferFamilyAuthorizer
+from .vpc_lattice import VpcLatticeModel
+from .vpc_latticev2 import VpcLatticeV2Model
 
 __all__ = [
     "APIGatewayProxyEventV2Model",
+    "ApiGatewayAuthorizerRequestV2",
+    "APIGatewayWebSocketEventIdentity",
+    "APIGatewayWebSocketMessageEventModel",
+    "APIGatewayWebSocketMessageEventRequestContext",
+    "APIGatewayWebSocketConnectEventModel",
+    "APIGatewayWebSocketConnectEventRequestContext",
+    "APIGatewayWebSocketDisconnectEventRequestContext",
+    "APIGatewayWebSocketDisconnectEventModel",
+    "APIGatewayWebSocketEventRequestContextBase",
     "RequestContextV2",
     "RequestContextV2Http",
     "RequestContextV2Authorizer",
@@ -130,12 +178,33 @@ __all__ = [
     "SqsRecordModel",
     "SqsMsgAttributeModel",
     "SqsAttributesModel",
+    "S3SqsEventNotificationModel",
+    "S3SqsEventNotificationRecordModel",
+    "TransferFamilyAuthorizer",
     "APIGatewayProxyEventModel",
     "APIGatewayEventRequestContext",
     "APIGatewayEventAuthorizer",
     "APIGatewayEventIdentity",
+    "ApiGatewayAuthorizerRequest",
+    "ApiGatewayAuthorizerToken",
     "KafkaSelfManagedEventModel",
     "KafkaRecordModel",
     "KafkaMskEventModel",
     "KafkaBaseEventModel",
+    "KinesisFirehoseSqsModel",
+    "KinesisFirehoseSqsRecord",
+    "CloudFormationCustomResourceUpdateModel",
+    "CloudFormationCustomResourceDeleteModel",
+    "CloudFormationCustomResourceCreateModel",
+    "CloudFormationCustomResourceBaseModel",
+    "VpcLatticeModel",
+    "VpcLatticeV2Model",
+    "BedrockAgentModel",
+    "BedrockAgentPropertyModel",
+    "BedrockAgentEventModel",
+    "BedrockAgentRequestBodyModel",
+    "BedrockAgentRequestMediaModel",
+    "S3BatchOperationJobModel",
+    "S3BatchOperationModel",
+    "S3BatchOperationTaskModel",
 ]

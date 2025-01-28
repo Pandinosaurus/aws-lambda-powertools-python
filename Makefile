@@ -6,20 +6,25 @@ target:
 
 dev:
 	pip install --upgrade pip pre-commit poetry
-	poetry install --extras "all"
+	@$(MAKE) dev-version-plugin
+	poetry install --extras "all redis datamasking"
+	pre-commit install
+
+dev-quality-code:
+	pip install --upgrade pip pre-commit poetry
+	poetry install --extras "all redis datamasking"
 	pre-commit install
 
 dev-gitpod:
 	pip install --upgrade pip poetry
-	poetry install --extras "all"
+	poetry install --extras "all redis datamasking"
 	pre-commit install
 
 format:
-	poetry run isort aws_lambda_powertools tests examples
 	poetry run black aws_lambda_powertools tests examples
 
 lint: format
-	poetry run flake8 aws_lambda_powertools tests examples
+	poetry run ruff check aws_lambda_powertools tests examples
 
 lint-docs:
 	docker run -v ${PWD}:/markdown 06kellyjac/markdownlint-cli "docs"
@@ -31,11 +36,17 @@ test:
 	poetry run pytest -m "not perf" --ignore tests/e2e --cov=aws_lambda_powertools --cov-report=xml
 	poetry run pytest --cache-clear tests/performance
 
+test-dependencies:
+	poetry run nox --error-on-external-run --reuse-venv=yes --non-interactive
+
+test-pydanticv2:
+	poetry run pytest -m "not perf" --ignore tests/e2e
+
 unit-test:
 	poetry run pytest tests/unit
 
 e2e-test:
-	python parallel_run_e2e.py
+	poetry run pytest tests/e2e
 
 coverage-html:
 	poetry run pytest -m "not perf" --ignore tests/e2e --cov=aws_lambda_powertools --cov-report=html
@@ -79,7 +90,7 @@ complexity-baseline:
 	$(info Maintenability index)
 	poetry run radon mi aws_lambda_powertools
 	$(info Cyclomatic complexity index)
-	poetry run xenon --max-absolute C --max-modules A --max-average A aws_lambda_powertools
+	poetry run xenon --max-absolute C --max-modules A --max-average A aws_lambda_powertools --exclude aws_lambda_powertools/shared/json_encoder.py,aws_lambda_powertools/utilities/validation/base.py
 
 #
 # Use `poetry version <major>/<minor></patch>` for version bump
@@ -106,3 +117,7 @@ changelog:
 
 mypy:
 	poetry run mypy --pretty aws_lambda_powertools examples
+
+
+dev-version-plugin:
+	poetry self add git+https://github.com/monim67/poetry-bumpversion@348de6f247222e2953d649932426e63492e0a6bf

@@ -1,11 +1,4 @@
-import sys
-
-if sys.version_info >= (3, 8):
-    from typing import TypedDict
-else:
-    from typing_extensions import TypedDict
-
-from typing import List
+from typing import List, TypedDict
 
 from aws_lambda_powertools import Logger, Tracer
 from aws_lambda_powertools.event_handler import AppSyncResolver
@@ -32,17 +25,18 @@ class Location(TypedDict, total=False):
 class MyCustomModel(AppSyncResolverEvent):
     @property
     def country_viewer(self) -> str:
-        return self.get_header_value(name="cloudfront-viewer-country", default_value="", case_sensitive=False)  # type: ignore[return-value] # sentinel typing # noqa: E501
+        return self.request_headers.get("cloudfront-viewer-country", "")
 
     @property
     def api_key(self) -> str:
-        return self.get_header_value(name="x-api-key", default_value="", case_sensitive=False)  # type: ignore[return-value] # sentinel typing # noqa: E501
+        return self.request_headers.get("x-api-key", "")
 
 
 @app.resolver(type_name="Query", field_name="listLocations")
 def list_locations(page: int = 0, size: int = 10) -> List[Location]:
     # additional properties/methods will now be available under current_event
-    logger.debug(f"Request country origin: {app.current_event.country_viewer}")  # type: ignore[attr-defined]
+    if app.current_event:
+        logger.debug(f"Request country origin: {app.current_event.country_viewer}")  # type: ignore[attr-defined]
     return [{"id": scalar_types_utils.make_id(), "name": "Perry, James and Carroll"}]
 
 

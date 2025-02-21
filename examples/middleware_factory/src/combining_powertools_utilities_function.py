@@ -1,5 +1,6 @@
 import json
 from typing import Callable
+from urllib.parse import quote
 
 import boto3
 import combining_powertools_utilities_schema as schemas
@@ -9,9 +10,9 @@ from aws_lambda_powertools import Logger, Tracer
 from aws_lambda_powertools.event_handler import APIGatewayRestResolver
 from aws_lambda_powertools.event_handler.exceptions import InternalServerError
 from aws_lambda_powertools.middleware_factory import lambda_handler_decorator
-from aws_lambda_powertools.shared.types import JSONType
 from aws_lambda_powertools.utilities.feature_flags import AppConfigStore, FeatureFlags
-from aws_lambda_powertools.utilities.jmespath_utils import extract_data_from_envelope
+from aws_lambda_powertools.utilities.feature_flags.types import JSONType
+from aws_lambda_powertools.utilities.jmespath_utils import query
 from aws_lambda_powertools.utilities.typing import LambdaContext
 from aws_lambda_powertools.utilities.validation import SchemaValidationError, validate
 
@@ -26,8 +27,11 @@ feature_flags = FeatureFlags(store=app_config)
 
 
 @lambda_handler_decorator(trace_execution=True)
-def middleware_custom(handler: Callable, event: dict, context: LambdaContext):
-
+def middleware_custom(
+    handler: Callable[[dict, LambdaContext], dict],
+    event: dict,
+    context: LambdaContext,
+) -> dict:
     # validating the INPUT with the given schema
     # X-Customer-Id header must be informed in all requests
     try:
@@ -39,8 +43,8 @@ def middleware_custom(handler: Callable, event: dict, context: LambdaContext):
         }
 
     # extracting headers and requestContext from event
-    headers = extract_data_from_envelope(data=event, envelope="headers")
-    request_context = extract_data_from_envelope(data=event, envelope="requestContext")
+    headers = query(data=event, envelope="headers")
+    request_context = query(data=event, envelope="requestContext")
 
     logger.debug(f"X-Customer-Id => {headers.get('X-Customer-Id')}")
     tracer.put_annotation(key="CustomerId", value=headers.get("X-Customer-Id"))
@@ -66,10 +70,9 @@ def middleware_custom(handler: Callable, event: dict, context: LambdaContext):
 
 @tracer.capture_method
 def save_api_execution_history(path: str, headers: dict, request_context: dict) -> None:
-
     try:
         # using the feature flags utility to check if the new feature "save api call to history" is enabled by default
-        # see: https://awslabs.github.io/aws-lambda-powertools-python/latest/utilities/feature_flags/#static-flags
+        # see: https://docs.powertools.aws.dev/lambda/python/latest/utilities/feature_flags/#static-flags
         save_history: JSONType = feature_flags.evaluate(name="save_history", default=False)
         if save_history:
             # saving history in dynamodb table
@@ -82,7 +85,7 @@ def save_api_execution_history(path: str, headers: dict, request_context: dict) 
                     "request_time": request_context.get("requestTime"),
                     "source_ip": request_context.get("identity", {}).get("sourceIp"),
                     "http_method": request_context.get("httpMethod"),
-                }
+                },
             )
 
         return None
@@ -101,19 +104,20 @@ def get_comments():
 
         return {"comments": comments.json()[:10]}
     except Exception as exc:
-        raise InternalServerError(str(exc))
+        raise InternalServerError(str(exc)) from exc
 
 
 @app.get("/comments/<comment_id>")
 @tracer.capture_method
 def get_comments_by_id(comment_id: str):
     try:
+        comment_id = quote(comment_id, safe="")
         comments: requests.Response = requests.get(f"https://jsonplaceholder.typicode.com/comments/{comment_id}")
         comments.raise_for_status()
 
         return {"comments": comments.json()}
     except Exception as exc:
-        raise InternalServerError(str(exc))
+        raise InternalServerError(str(exc)) from exc
 
 
 @middleware_custom

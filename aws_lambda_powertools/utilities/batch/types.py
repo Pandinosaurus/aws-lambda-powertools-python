@@ -1,27 +1,23 @@
-#
-# type specifics
-#
-import sys
-from typing import List, Optional, Type, Union
+from __future__ import annotations
 
-from typing_extensions import TypedDict
+import sys
+from typing import Optional, Type, TypedDict, Union
 
 has_pydantic = "pydantic" in sys.modules
 
 # For IntelliSense and Mypy to work, we need to account for possible SQS subclasses
 # We need them as subclasses as we must access their message ID or sequence number metadata via dot notation
-if has_pydantic:
-    from aws_lambda_powertools.utilities.parser.models import DynamoDBStreamRecordModel
+if has_pydantic:  # pragma: no cover
+    from aws_lambda_powertools.utilities.parser.models import DynamoDBStreamRecordModel, SqsRecordModel
     from aws_lambda_powertools.utilities.parser.models import (
         KinesisDataStreamRecord as KinesisDataStreamRecordModel,
     )
-    from aws_lambda_powertools.utilities.parser.models import SqsRecordModel
 
     BatchTypeModels = Optional[
         Union[Type[SqsRecordModel], Type[DynamoDBStreamRecordModel], Type[KinesisDataStreamRecordModel]]
     ]
     BatchSqsTypeModel = Optional[Type[SqsRecordModel]]
-else:
+else:  # pragma: no cover
     BatchTypeModels = "BatchTypeModels"  # type: ignore
     BatchSqsTypeModel = "BatchSqsTypeModel"  # type: ignore
 
@@ -31,4 +27,4 @@ class PartialItemFailures(TypedDict):
 
 
 class PartialItemFailureResponse(TypedDict):
-    batchItemFailures: List[PartialItemFailures]
+    batchItemFailures: list[PartialItemFailures]

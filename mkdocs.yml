@@ -1,37 +1,123 @@
-site_name: AWS Lambda Powertools for Python
-site_description: AWS Lambda Powertools for Python
+site_name: Powertools for AWS Lambda (Python)
+site_description: Powertools for AWS Lambda (Python)
 site_author: Amazon Web Services
-repo_url: https://github.com/awslabs/aws-lambda-powertools-python
+repo_url: https://github.com/aws-powertools/powertools-lambda-python
 edit_uri: edit/develop/docs
+site_url: https://docs.powertools.aws.dev/lambda/python
 
 nav:
-  - Homepage: index.md
-  - Changelog: changelog.md
+  - Homepage:
+      - index.md
+      - Changelog: changelog.md
+      - API reference: api/" target="_blank
+      - Upgrade guide: upgrade.md
+      - We Made This (Community): we_made_this.md
+      - Workshop 🆕: https://s12d.com/powertools-for-aws-lambda-workshop" target="_blank
+      - Roadmap: roadmap.md
+      - Features:
+          - core/tracer.md
+          - core/logger.md
+          - Metrics:
+              - core/metrics/index.md
+              - Amazon CloudWatch EMF: core/metrics.md
+              - Datadog: core/metrics/datadog.md
+          - Event Handler:
+              - core/event_handler/api_gateway.md
+              - core/event_handler/appsync.md
+              - core/event_handler/bedrock_agents.md
+          - utilities/parameters.md
+          - utilities/batch.md
+          - utilities/typing.md
+          - utilities/validation.md
+          - utilities/data_classes.md
+          - utilities/parser.md
+          - utilities/idempotency.md
+          - utilities/data_masking.md
+          - utilities/feature_flags.md
+          - utilities/streaming.md
+          - utilities/middleware_factory.md
+          - utilities/jmespath_functions.md
+          - CloudFormation Custom Resources: https://github.com/aws-cloudformation/custom-resource-helper" target="_blank
   - Tutorial: tutorial/index.md
-  - Roadmap: roadmap.md
-  - API reference: api/" target="_blank
-  - Upgrade guide: upgrade.md
-  - We Made This (Community): we_made_this.md
-  - Core utilities:
-      - core/tracer.md
-      - core/logger.md
-      - core/metrics.md
+  - Processes:
+      - Security: security.md
+      - Automation: automation.md
+      - Versioning policy: versioning.md
+      - Roadmap: roadmap.md
+      - Maintainers: maintainers.md
+      - Contributing:
+          # - contributing/index.md
+          - Development environment: contributing/setup.md
+          - Your first contribution: contributing/getting_started.md
+          - Conventions: contributing/conventions.md
+          # - Testing:
+          #     - Unit tests: contributing/testing/unit_tests.md
+          #     - Functional tests: contributing/testing/functional_tests.md
+          #     - End-to-end tests: contributing/testing/e2e_tests.md
+          # - Documentation:
+          #     - User guide: contributing/documentation/user_guide.md
+          #     - API guide: contributing/documentation/api_guide.md
+          #     - Tutorials: contributing/documentation/tutorials.md
+          #     - Request For Comments (RFC): contributing/documentation/rfc.md
+          # - Tracks:
+          #     - Overview: contributing/tracks/overview.md
+          #     - Casual to regular contributor: contributing/tracks/casual_regular_contributor.md
+          #     - Customer to advocate: contributing/tracks/customer_advocate.md
+  - API Documentation:
+      - Batch Processing:
+          - Base: api_doc/batch/base.md
+          - Decorators: api_doc/batch/decorators.md
+          - Exceptions: api_doc/batch/exceptions.md
+      - Event Source Data Classes: api_doc/data_classes.md
+      - Data Masking:
+          - Base: api_doc/data_masking/base.md
+          - Exception: api_doc/data_masking/exceptions.md
+          - Provider: api_doc/data_masking/provider.md
       - Event Handler:
-          - core/event_handler/api_gateway.md
-          - core/event_handler/appsync.md
-  - Utilities:
-      - utilities/parameters.md
-      - utilities/batch.md
-      - utilities/typing.md
-      - utilities/validation.md
-      - utilities/data_classes.md
-      - utilities/parser.md
-      - utilities/idempotency.md
-      - utilities/feature_flags.md
-      - utilities/streaming.md
-      - utilities/middleware_factory.md
-      - utilities/jmespath_functions.md
-      - CloudFormation Custom Resources: https://github.com/aws-cloudformation/custom-resource-helper" target="_blank
+          - AppSync: api_doc/event_handler/appsync.md
+          - Middleware: api_doc/event_handler/middleware.md
+          - OpenAPI: api_doc/event_handler/openapi.md
+          - REST: api_doc/event_handler/api_gateway.md
+      - Feature Flags:
+          - AppConfig: api_doc/feature_flags/appconfig.md
+          - Base: api_doc/feature_flags/base.md
+          - Comparators: api_doc/feature_flags/comparators.md
+          - Exceptions: api_doc/feature_flags/exceptions.md
+          - Feature flags: api_doc/feature_flags/feature_flags.md
+          - Schema: api_doc/feature_flags/schema.md
+      - Idempotency:
+          - Base: api_doc/idempotency/base.md
+          - Config: api_doc/idempotency/config.md
+          - Exceptions: api_doc/idempotency/exceptions.md
+          - Persistence: api_doc/idempotency/persistence.md
+          - Serialization: api_doc/idempotency/serialization.md
+      - JMESPath Functions: api_doc/jmespath_functions.md
+      - Logger:
+          - DataDog Formatter: api_doc/logger/datadog_formatter.md
+          - Exceptions: api_doc/logger/exceptions.md
+          - Formatter: api_doc/logger/formatter.md
+          - Lambda Context: api_doc/logger/lambda_context.md
+          - Logger: api_doc/logger/logger.md
+      - Metrics:
+          - Base: api_doc/metrics/base.md
+          - Exceptions: api_doc/metrics/exceptions.md
+          - Providers:
+            - EMF: api_doc/metrics/provider_emf.md
+            - DataDog: api_doc/metrics/provider_datadog.md
+      - Middleware Factory: api_doc/middleware_factory.md
+      - Parameters:
+          - Base: api_doc/parameters/base.md
+          - AppConfig: api_doc/parameters/appconfig.md
+          - DynamoDB: api_doc/parameters/dynamodb.md
+          - SSM: api_doc/parameters/ssm.md
+          - Secrets: api_doc/parameters/secrets.md
+      - Parser: api_doc/parser.md
+      - Streaming: api_doc/streaming.md
+      - Tracer:
+          - Base: api_doc/tracer/base.md
+          - Tracing: api_doc/tracer/tracing.md
+      - Typing: api_doc/typing.md
+      - Validation: api_doc/validation.md
 
 theme:
   name: material
@@ -41,24 +127,25 @@ theme:
     - scheme: default
       primary: deep purple
       toggle:
-        icon: material/toggle-switch-off-outline
+        icon: material/lightbulb
         name: Switch to dark mode
     - scheme: slate
       primary: indigo
       accent: teal
       toggle:
-        icon: material/toggle-switch
+        icon: material/lightbulb-outline
         name: Switch to light mode
   features:
     - header.autohide
     - navigation.sections
-    - navigation.expand
     - navigation.top
     - navigation.instant
     - navigation.indexes
     - navigation.tracking
+    - navigation.tabs
     - content.code.annotate
     - content.code.copy
+    - content.tabs.link
   icon:
     repo: fontawesome/brands/github
   logo: media/aws-logo-light.svg
@@ -67,42 +154,97 @@ theme:
 
 markdown_extensions:
   - admonition
+  - abbr
   - pymdownx.tabbed:
       alternate_style: true
+      slugify: !!python/object/apply:pymdownx.slugs.slugify
+        kwds:
+          case: lower
   - pymdownx.highlight:
       linenums: true
   - pymdownx.details
   - pymdownx.snippets:
       base_path: "."
       check_paths: true
+      restrict_base_path: false
+      auto_append:
+        - includes/abbreviations.md
   - meta
   - toc:
       permalink: true
-      toc_depth: 4
+      toc_depth: 5
   - attr_list
+  - md_in_html
   - pymdownx.emoji:
-      emoji_index: !!python/name:materialx.emoji.twemoji
-      emoji_generator: !!python/name:materialx.emoji.to_svg
+      emoji_index: !!python/name:material.extensions.emoji.twemoji
+      emoji_generator: !!python/name:material.extensions.emoji.to_svg
   - pymdownx.inlinehilite
   - pymdownx.superfences:
       custom_fences:
         - name: mermaid
           class: mermaid
           format: !!python/name:pymdownx.superfences.fence_code_format
+  - pymdownx.tasklist:
+      custom_checkbox: true
 
-copyright: Copyright &copy; 2022 Amazon Web Services
+copyright: Copyright &copy; 2023 Amazon Web Services
 
 plugins:
+  - privacy
   - git-revision-date
   - search
+  - mkdocstrings:
+      default_handler: python
+      enable_inventory: true
+      handlers:
+        python:
+          import:
+            - https://docs.python.org/3/objects.inv
+          options:
+            # Headings
+            #heading_level: 2
+            #show_root_heading: true
+            #show_root_toc_entry: true
+            #show_root_full_path: true
+            #show_root_members_full_path: false
+            #show_object_full_path: false
+            show_category_heading: false
+            # Members
+            filters: ["!^_"]
+            group_by_category: true
+            members_order: alphabetical
+            show_submodules: true
+            # Docstrings
+            docstring_style: numpy
+            docstring_options:
+              ignore_init_summary: true
+            docstring_section_style: spacy
+            merge_init_into_class: true
+            show_if_no_docstring: false
+            # Signature
+            show_signature: true
+            show_signature_annotations: true
+            separate_signature: true
+            summary: true
 
 extra_css:
   - stylesheets/extra.css
 extra_javascript:
   - javascript/aws-amplify.min.js
   - javascript/extra.js
+  - https://docs.powertools.aws.dev/shared/mermaid.min.js
 
 extra:
   version:
     provider: mike
     default: latest
+  social:
+    - icon: fontawesome/brands/discord
+      link: https://discord.gg/B8zZKbbyET
+      name: Discord Server for Powertools for AWS
+    - icon: material/web
+      link: https://powertools.aws.dev/
+      name: Official website for Powertools for AWS
+    - icon: simple/python
+      link: https://pypi.org/project/aws-lambda-powertools/
+      name: PyPi package

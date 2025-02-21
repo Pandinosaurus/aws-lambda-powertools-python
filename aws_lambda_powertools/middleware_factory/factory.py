@@ -1,19 +1,21 @@
+from __future__ import annotations
+
 import functools
 import inspect
 import logging
 import os
-from typing import Any, Callable, Optional
+from typing import Any, Callable
 
-from ..shared import constants
-from ..shared.functions import resolve_truthy_env_var_choice
-from ..tracing import Tracer
-from .exceptions import MiddlewareInvalidArgumentError
+from aws_lambda_powertools.middleware_factory.exceptions import MiddlewareInvalidArgumentError
+from aws_lambda_powertools.shared import constants
+from aws_lambda_powertools.shared.functions import resolve_truthy_env_var_choice
+from aws_lambda_powertools.tracing import Tracer
 
 logger = logging.getLogger(__name__)
 
 
 # Maintenance: we can't yet provide an accurate return type without ParamSpec etc. see #1066
-def lambda_handler_decorator(decorator: Optional[Callable] = None, trace_execution: Optional[bool] = None) -> Callable:
+def lambda_handler_decorator(decorator: Callable | None = None, trace_execution: bool | None = None) -> Callable:
     """Decorator factory for decorating Lambda handlers.
 
     You can use lambda_handler_decorator to create your own middlewares,
@@ -107,11 +109,12 @@ def lambda_handler_decorator(decorator: Optional[Callable] = None, trace_executi
         return functools.partial(lambda_handler_decorator, trace_execution=trace_execution)
 
     trace_execution = resolve_truthy_env_var_choice(
-        env=os.getenv(constants.MIDDLEWARE_FACTORY_TRACE_ENV, "false"), choice=trace_execution
+        env=os.getenv(constants.MIDDLEWARE_FACTORY_TRACE_ENV, "false"),
+        choice=trace_execution,
     )
 
     @functools.wraps(decorator)
-    def final_decorator(func: Optional[Callable] = None, **kwargs: Any):
+    def final_decorator(func: Callable | None = None, **kwargs: Any):
         # If called with kwargs return new func with kwargs
         if func is None:
             return functools.partial(final_decorator, **kwargs)
@@ -119,13 +122,13 @@ def lambda_handler_decorator(decorator: Optional[Callable] = None, trace_executi
         if not inspect.isfunction(func):
             # @custom_middleware(True) vs @custom_middleware(log_event=True)
             raise MiddlewareInvalidArgumentError(
-                f"Only keyword arguments is supported for middlewares: {decorator.__qualname__} received {func}"  # type: ignore # noqa: E501
+                f"Only keyword arguments is supported for middlewares: {decorator.__qualname__} received {func}",  # type: ignore # noqa: E501
             )
 
         @functools.wraps(func)
-        def wrapper(event, context):
+        def wrapper(event, context, **handler_kwargs):
             try:
-                middleware = functools.partial(decorator, func, event, context, **kwargs)
+                middleware = functools.partial(decorator, func, event, context, **kwargs, **handler_kwargs)
                 if trace_execution:
                     tracer = Tracer(auto_patch=False)
                     with tracer.provider.in_subsegment(name=f"## {decorator.__qualname__}"):

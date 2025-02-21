@@ -6,7 +6,7 @@ from uuid import uuid4
 from aws_lambda_powertools.middleware_factory import lambda_handler_decorator
 from aws_lambda_powertools.utilities.jmespath_utils import (
     envelopes,
-    extract_data_from_envelope,
+    query,
 )
 from aws_lambda_powertools.utilities.typing import LambdaContext
 
@@ -23,14 +23,18 @@ class Booking:
     booking_id: str = field(default_factory=lambda: f"{uuid4()}")
 
 
-class BookingError(Exception):
-    ...
+class BookingError(Exception): ...
 
 
 @lambda_handler_decorator
-def obfuscate_sensitive_data(handler, event, context, fields: List) -> Callable:
+def obfuscate_sensitive_data(
+    handler: Callable[[dict, LambdaContext], dict],
+    event: dict,
+    context: LambdaContext,
+    fields: List,
+) -> dict:
     # extracting payload from a EventBridge event
-    detail: dict = extract_data_from_envelope(data=event, envelope=envelopes.EVENTBRIDGE)
+    detail: dict = query(data=event, envelope=envelopes.EVENTBRIDGE)
     guest_data: Any = detail.get("guest")
 
     # Obfuscate fields (email, vat, passport) before calling Lambda handler
@@ -38,9 +42,7 @@ def obfuscate_sensitive_data(handler, event, context, fields: List) -> Callable:
         if guest_data.get(guest_field):
             event["detail"]["guest"][guest_field] = obfuscate_data(str(guest_data.get(guest_field)))
 
-    response = handler(event, context)
-
-    return response
+    return handler(event, context)
 
 
 def obfuscate_data(value: str) -> bytes:
@@ -49,9 +51,9 @@ def obfuscate_data(value: str) -> bytes:
 
 
 @obfuscate_sensitive_data(fields=["email", "passport", "vat"])
-def lambda_handler(event, context: LambdaContext) -> dict:
+def lambda_handler(event: dict, context: LambdaContext) -> dict:
     try:
-        booking_payload: dict = extract_data_from_envelope(data=event, envelope=envelopes.EVENTBRIDGE)
+        booking_payload: dict = query(data=event, envelope=envelopes.EVENTBRIDGE)
         return {
             "book": Booking(**booking_payload).__dict__,
             "message": "booking created",

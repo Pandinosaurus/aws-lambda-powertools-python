@@ -1,15 +1,23 @@
+from __future__ import annotations
+
 import inspect
 import json
 import logging
 import os
 import time
+import traceback
 from abc import ABCMeta, abstractmethod
+from contextlib import contextmanager
+from contextvars import ContextVar
 from datetime import datetime, timezone
 from functools import partial
-from typing import Any, Callable, Dict, Iterable, List, Optional, Tuple, Union
+from typing import TYPE_CHECKING, Any, Callable, Generator, Iterable
 
-from ..shared import constants
-from ..shared.functions import powertools_dev_is_set
+from aws_lambda_powertools.shared import constants
+from aws_lambda_powertools.shared.functions import powertools_dev_is_set
+
+if TYPE_CHECKING:
+    from aws_lambda_powertools.logging.types import LogRecord, LogStackTrace
 
 RESERVED_LOG_ATTRS = (
     "name",
@@ -41,20 +49,42 @@ RESERVED_LOG_ATTRS = (
 
 class BasePowertoolsFormatter(logging.Formatter, metaclass=ABCMeta):
     @abstractmethod
-    def append_keys(self, **additional_keys):
+    def append_keys(self, **additional_keys) -> None:
         raise NotImplementedError()
 
-    def remove_keys(self, keys: Iterable[str]):
+    def get_current_keys(self) -> dict[str, Any]:
+        return {}
+
+    def remove_keys(self, keys: Iterable[str]) -> None:
         raise NotImplementedError()
 
     @abstractmethod
-    def clear_state(self):
+    def clear_state(self) -> None:
         """Removes any previously added logging keys"""
+        raise NotImplementedError()
+
+    @contextmanager
+    def append_context_keys(self, **additional_keys: Any) -> Generator[None, None, None]:
+        yield
+
+    # These specific thread-safe methods are necessary to manage shared context in concurrent environments.
+    # They prevent race conditions and ensure data consistency across multiple threads.
+    def thread_safe_append_keys(self, **additional_keys) -> None:
+        raise NotImplementedError()
+
+    def thread_safe_get_current_keys(self) -> dict[str, Any]:
+        return {}
+
+    def thread_safe_remove_keys(self, keys: Iterable[str]) -> None:
+        raise NotImplementedError()
+
+    def thread_safe_clear_keys(self) -> None:
+        """Removes any previously added logging keys in a specific thread"""
         raise NotImplementedError()
 
 
 class LambdaPowertoolsFormatter(BasePowertoolsFormatter):
-    """AWS Lambda Powertools Logging formatter.
+    """Powertools for AWS Lambda (Python) Logging formatter.
 
     Formats the log message as a JSON encoded string. If the message is a
     dict it will be used directly.
@@ -66,16 +96,17 @@ class LambdaPowertoolsFormatter(BasePowertoolsFormatter):
 
     def __init__(
         self,
-        json_serializer: Optional[Callable[[Dict], str]] = None,
-        json_deserializer: Optional[Callable[[Union[Dict, str, bool, int, float]], str]] = None,
-        json_default: Optional[Callable[[Any], Any]] = None,
-        datefmt: Optional[str] = None,
+        json_serializer: Callable[[LogRecord], str] | None = None,
+        json_deserializer: Callable[[dict | str | bool | int | float], str] | None = None,
+        json_default: Callable[[Any], Any] | None = None,
+        datefmt: str | None = None,
         use_datetime_directive: bool = False,
-        log_record_order: Optional[List[str]] = None,
+        log_record_order: list[str] | None = None,
         utc: bool = False,
         use_rfc3339: bool = False,
+        serialize_stacktrace: bool = True,
         **kwargs,
-    ):
+    ) -> None:
         """Return a LambdaPowertoolsFormatter instance.
 
         The `log_record_order` kwarg is used to specify the order of the keys used in
@@ -124,7 +155,11 @@ class LambdaPowertoolsFormatter(BasePowertoolsFormatter):
             constants.PRETTY_INDENT if powertools_dev_is_set() else constants.COMPACT_INDENT
         )  # indented json serialization when in AWS SAM Local
         self.json_serializer = json_serializer or partial(
-            json.dumps, default=self.json_default, separators=(",", ":"), indent=self.json_indent
+            json.dumps,
+            default=self.json_default,
+            separators=(",", ":"),
+            indent=self.json_indent,
+            ensure_ascii=False,  # see #3474
         )
 
         self.datefmt = datefmt
@@ -138,13 +173,17 @@ class LambdaPowertoolsFormatter(BasePowertoolsFormatter):
 
         if self.utc:
             self.converter = time.gmtime
-
-        super(LambdaPowertoolsFormatter, self).__init__(datefmt=self.datefmt)
+        else:
+            self.converter = time.localtime
 
         self.keys_combined = {**self._build_default_keys(), **kwargs}
         self.log_format.update(**self.keys_combined)
 
-    def serialize(self, log: Dict) -> str:
+        self.serialize_stacktrace = serialize_stacktrace
+
+        super().__init__(datefmt=self.datefmt)
+
+    def serialize(self, log: LogRecord) -> str:
         """Serialize structured log dict to JSON str"""
         return self.json_serializer(log)
 
@@ -152,17 +191,21 @@ class LambdaPowertoolsFormatter(BasePowertoolsFormatter):
         """Format logging record as structured JSON str"""
         formatted_log = self._extract_log_keys(log_record=record)
         formatted_log["message"] = self._extract_log_message(log_record=record)
+
         # exception and exception_name fields can be added as extra key
         # in any log level, we try to extract and use them first
         extracted_exception, extracted_exception_name = self._extract_log_exception(log_record=record)
         formatted_log["exception"] = formatted_log.get("exception", extracted_exception)
         formatted_log["exception_name"] = formatted_log.get("exception_name", extracted_exception_name)
+        if self.serialize_stacktrace:
+            # Generate the traceback from the traceback library
+            formatted_log["stack_trace"] = self._serialize_stacktrace(log_record=record)
         formatted_log["xray_trace_id"] = self._get_latest_trace_id()
         formatted_log = self._strip_none_records(records=formatted_log)
 
         return self.serialize(log=formatted_log)
 
-    def formatTime(self, record: logging.LogRecord, datefmt: Optional[str] = None) -> str:
+    def formatTime(self, record: logging.LogRecord, datefmt: str | None = None) -> str:
         # As of Py3.7, we can infer milliseconds directly from any datetime
         # saving processing time as we can shortcircuit early
         # Maintenance: In V3, we (and Java) should move to this format by default
@@ -184,7 +227,7 @@ class LambdaPowertoolsFormatter(BasePowertoolsFormatter):
         # NOTE: Python `time.strftime` doesn't provide msec directives
         # so we create a custom one (%F) and replace logging record_ts
         # Reason 2 is that std logging doesn't support msec after TZ
-        msecs = "%03d" % record.msecs
+        msecs = "%03d" % record.msecs  # noqa UP031
 
         # Datetime format codes is a superset of time format codes
         # therefore we only honour them if explicitly asked
@@ -211,31 +254,81 @@ class LambdaPowertoolsFormatter(BasePowertoolsFormatter):
         custom_fmt = self.default_time_format.replace(self.custom_ms_time_directive, msecs)
         return time.strftime(custom_fmt, record_ts)
 
-    def append_keys(self, **additional_keys):
+    def append_keys(self, **additional_keys) -> None:
         self.log_format.update(additional_keys)
 
-    def remove_keys(self, keys: Iterable[str]):
+    def get_current_keys(self) -> dict[str, Any]:
+        return self.log_format
+
+    def remove_keys(self, keys: Iterable[str]) -> None:
         for key in keys:
             self.log_format.pop(key, None)
 
-    def clear_state(self):
+    def clear_state(self) -> None:
         self.log_format = dict.fromkeys(self.log_record_order)
         self.log_format.update(**self.keys_combined)
 
+    @contextmanager
+    def append_context_keys(self, **additional_keys: Any) -> Generator[None, None, None]:
+        """
+        Context manager to temporarily add logging keys.
+
+        Parameters
+        -----------
+        **additional_keys: Any
+            Key-value pairs to include in the log context during the lifespan of the context manager.
+
+        Example
+        --------
+            logger = Logger(service="example_service")
+            with logger.append_context_keys(user_id="123", operation="process"):
+                logger.info("Log with context")
+            logger.info("Log without context")
+        """
+        # Add keys to the context
+        self.append_keys(**additional_keys)
+        try:
+            yield
+        finally:
+            # Remove the keys after exiting the context
+            self.remove_keys(additional_keys.keys())
+
+    # These specific thread-safe methods are necessary to manage shared context in concurrent environments.
+    # They prevent race conditions and ensure data consistency across multiple threads.
+    def thread_safe_append_keys(self, **additional_keys) -> None:
+        # Append additional key-value pairs to the context safely in a thread-safe manner.
+        set_context_keys(**additional_keys)
+
+    def thread_safe_get_current_keys(self) -> dict[str, Any]:
+        # Retrieve the current context keys safely in a thread-safe manner.
+        return _get_context().get()
+
+    def thread_safe_remove_keys(self, keys: Iterable[str]) -> None:
+        # Remove specified keys from the context safely in a thread-safe manner.
+        remove_context_keys(keys)
+
+    def thread_safe_clear_keys(self) -> None:
+        # Clear all keys from the context safely in a thread-safe manner.
+        clear_context_keys()
+
     @staticmethod
-    def _build_default_keys():
+    def _build_default_keys() -> dict[str, str]:
         return {
             "level": "%(levelname)s",
             "location": "%(funcName)s:%(lineno)d",
             "timestamp": "%(asctime)s",
         }
 
-    @staticmethod
-    def _get_latest_trace_id():
+    def _get_latest_trace_id(self) -> str | None:
+        xray_trace_id_key = self.log_format.get("xray_trace_id", "")
+        if xray_trace_id_key is None:
+            # key is explicitly disabled; ignore it. e.g., Logger(xray_trace_id=None)
+            return None
+
         xray_trace_id = os.getenv(constants.XRAY_TRACE_ID_ENV)
         return xray_trace_id.split(";")[0].replace("Root=", "") if xray_trace_id else None
 
-    def _extract_log_message(self, log_record: logging.LogRecord) -> Union[Dict[str, Any], str, bool, Iterable]:
+    def _extract_log_message(self, log_record: logging.LogRecord) -> dict[str, Any] | str | bool | Iterable:
         """Extract message from log record and attempt to JSON decode it if str
 
         Parameters
@@ -245,7 +338,7 @@ class LambdaPowertoolsFormatter(BasePowertoolsFormatter):
 
         Returns
         -------
-        message: Union[Dict, str, bool, Iterable]
+        message: dict[str, Any] | str | bool | Iterable
             Extracted message
         """
         message = log_record.msg
@@ -263,7 +356,25 @@ class LambdaPowertoolsFormatter(BasePowertoolsFormatter):
 
         return message
 
-    def _extract_log_exception(self, log_record: logging.LogRecord) -> Union[Tuple[str, str], Tuple[None, None]]:
+    def _serialize_stacktrace(self, log_record: logging.LogRecord) -> LogStackTrace | None:
+        if log_record.exc_info:
+            exception_info: LogStackTrace = {
+                "type": log_record.exc_info[0].__name__,  # type: ignore
+                "value": log_record.exc_info[1],  # type: ignore
+                "module": log_record.exc_info[1].__class__.__module__,
+                "frames": [],
+            }
+
+            exception_info["frames"] = [
+                {"file": fs.filename, "line": fs.lineno, "function": fs.name, "statement": fs.line}
+                for fs in traceback.extract_tb(log_record.exc_info[2])
+            ]
+
+            return exception_info
+
+        return None
+
+    def _extract_log_exception(self, log_record: logging.LogRecord) -> tuple[str, str] | tuple[None, None]:
         """Format traceback information, if available
 
         Parameters
@@ -273,7 +384,7 @@ class LambdaPowertoolsFormatter(BasePowertoolsFormatter):
 
         Returns
         -------
-        log_record: Optional[Tuple[str, str]]
+        log_record: tuple[str, str] | tuple[None, None]
             Log record with constant traceback info and exception name
         """
         if log_record.exc_info:
@@ -281,7 +392,7 @@ class LambdaPowertoolsFormatter(BasePowertoolsFormatter):
 
         return None, None
 
-    def _extract_log_keys(self, log_record: logging.LogRecord) -> Dict[str, Any]:
+    def _extract_log_keys(self, log_record: logging.LogRecord) -> dict[str, Any]:
         """Extract and parse custom and reserved log keys
 
         Parameters
@@ -291,21 +402,40 @@ class LambdaPowertoolsFormatter(BasePowertoolsFormatter):
 
         Returns
         -------
-        formatted_log: Dict
+        formatted_log: dict[str, Any]
             Structured log as dictionary
         """
         record_dict = log_record.__dict__.copy()
         record_dict["asctime"] = self.formatTime(record=log_record)
         extras = {k: v for k, v in record_dict.items() if k not in RESERVED_LOG_ATTRS}
 
-        formatted_log = {}
+        formatted_log: dict[str, Any] = {}
 
         # Iterate over a default or existing log structure
         # then replace any std log attribute e.g. '%(level)s' to 'INFO', '%(process)d to '4773'
+        # check if the value is a str if the key is a reserved attribute, the modulo operator only supports string
         # lastly add or replace incoming keys (those added within the constructor or .structure_logs method)
         for key, value in self.log_format.items():
             if value and key in RESERVED_LOG_ATTRS:
-                formatted_log[key] = value % record_dict
+                if isinstance(value, str):
+                    formatted_log[key] = value % record_dict
+                else:
+                    raise ValueError(
+                        "Logging keys that override reserved log attributes need to be type 'str', "
+                        f"instead got '{type(value).__name__}'",
+                    )
+            else:
+                formatted_log[key] = value
+
+        for key, value in _get_context().get().items():
+            if value and key in RESERVED_LOG_ATTRS:
+                if isinstance(value, str):
+                    formatted_log[key] = value % record_dict
+                else:
+                    raise ValueError(
+                        "Logging keys that override reserved log attributes need to be type 'str', "
+                        f"instead got '{type(value).__name__}'",
+                    )
             else:
                 formatted_log[key] = value
 
@@ -313,7 +443,7 @@ class LambdaPowertoolsFormatter(BasePowertoolsFormatter):
         return formatted_log
 
     @staticmethod
-    def _strip_none_records(records: Dict[str, Any]) -> Dict[str, Any]:
+    def _strip_none_records(records: dict[str, Any]) -> dict[str, Any]:
         """Remove any key with None as value"""
         return {k: v for k, v in records.items() if v is not None}
 
@@ -322,4 +452,32 @@ JsonFormatter = LambdaPowertoolsFormatter  # alias to previous formatter
 
 
 # Fetch current and future parameters from PowertoolsFormatter that should be reserved
-RESERVED_FORMATTER_CUSTOM_KEYS: List[str] = inspect.getfullargspec(LambdaPowertoolsFormatter).args[1:]
+RESERVED_FORMATTER_CUSTOM_KEYS: list[str] = inspect.getfullargspec(LambdaPowertoolsFormatter).args[1:]
+
+# ContextVar for thread local keys
+default_contextvar: dict[str, Any] = {}
+
+THREAD_LOCAL_KEYS: ContextVar[dict[str, Any]] = ContextVar("THREAD_LOCAL_KEYS", default=default_contextvar)
+
+
+def _get_context() -> ContextVar[dict[str, Any]]:
+    return THREAD_LOCAL_KEYS
+
+
+def clear_context_keys() -> None:
+    _get_context().set({})
+
+
+def set_context_keys(**kwargs: dict[str, Any]) -> None:
+    context = _get_context()
+    context.set({**context.get(), **kwargs})
+
+
+def remove_context_keys(keys: Iterable[str]) -> None:
+    context = _get_context()
+    context_values = context.get()
+
+    for k in keys:
+        context_values.pop(k, None)
+
+    context.set(context_values)

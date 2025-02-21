@@ -1,4 +1,4 @@
-from aws_cdk import CfnOutput, RemovalPolicy
+from aws_cdk import CfnOutput, Duration, RemovalPolicy
 from aws_cdk import aws_dynamodb as dynamodb
 from aws_cdk.aws_dynamodb import Table
 
@@ -10,12 +10,17 @@ class IdempotencyDynamoDBStack(BaseInfrastructure):
         table = self._create_dynamodb_table()
 
         env_vars = {"IdempotencyTable": table.table_name}
-        functions = self.create_lambda_functions(function_props={"environment": env_vars})
+        functions = self.create_lambda_functions(
+            function_props={"environment": env_vars, "timeout": Duration.seconds(10)},
+        )
 
         table.grant_read_write_data(functions["TtlCacheExpirationHandler"])
         table.grant_read_write_data(functions["TtlCacheTimeoutHandler"])
         table.grant_read_write_data(functions["ParallelExecutionHandler"])
         table.grant_read_write_data(functions["FunctionThreadSafetyHandler"])
+        table.grant_read_write_data(functions["OptionalIdempotencyKeyHandler"])
+        table.grant_read_write_data(functions["PayloadTamperingValidationHandler"])
+        table.grant_read_write_data(functions["ResponseHook"])
 
     def _create_dynamodb_table(self) -> Table:
         table = dynamodb.Table(

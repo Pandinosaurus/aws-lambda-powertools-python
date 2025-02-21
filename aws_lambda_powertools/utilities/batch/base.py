@@ -1,8 +1,11 @@
-# -*- coding: utf-8 -*-
-
 """
 Batch processing utilities
+!!! abstract "Usage Documentation"
+    [`Batch processing`](../../utilities/batch.md)
 """
+
+from __future__ import annotations
+
 import asyncio
 import copy
 import inspect
@@ -11,7 +14,7 @@ import os
 import sys
 from abc import ABC, abstractmethod
 from enum import Enum
-from typing import Any, Callable, Dict, List, Optional, Tuple, Union, overload
+from typing import TYPE_CHECKING, Any, Callable, Tuple, Union, overload
 
 from aws_lambda_powertools.shared import constants
 from aws_lambda_powertools.utilities.batch.exceptions import (
@@ -26,7 +29,13 @@ from aws_lambda_powertools.utilities.data_classes.kinesis_stream_event import (
     KinesisStreamRecord,
 )
 from aws_lambda_powertools.utilities.data_classes.sqs_event import SQSRecord
-from aws_lambda_powertools.utilities.typing import LambdaContext
+
+if TYPE_CHECKING:
+    from aws_lambda_powertools.utilities.batch.types import (
+        PartialItemFailureResponse,
+        PartialItemFailures,
+    )
+    from aws_lambda_powertools.utilities.typing import LambdaContext
 
 logger = logging.getLogger(__name__)
 
@@ -41,7 +50,7 @@ class EventType(Enum):
 # and depending on what EventType it's passed it'll correctly map to the right record
 # When using Pydantic Models, it'll accept any subclass from SQS, DynamoDB and Kinesis
 EventSourceDataClassTypes = Union[SQSRecord, KinesisStreamRecord, DynamoDBRecord]
-BatchEventTypes = Union[EventSourceDataClassTypes, "BatchTypeModels"]
+BatchEventTypes = Union[EventSourceDataClassTypes, BatchTypeModels]
 SuccessResponse = Tuple[str, Any, BatchEventTypes]
 FailureResponse = Tuple[str, str, BatchEventTypes]
 
@@ -54,9 +63,9 @@ class BasePartialProcessor(ABC):
     lambda_context: LambdaContext
 
     def __init__(self):
-        self.success_messages: List[BatchEventTypes] = []
-        self.fail_messages: List[BatchEventTypes] = []
-        self.exceptions: List[ExceptionInfo] = []
+        self.success_messages: list[BatchEventTypes] = []
+        self.fail_messages: list[BatchEventTypes] = []
+        self.exceptions: list[ExceptionInfo] = []
 
     @abstractmethod
     def _prepare(self):
@@ -79,7 +88,7 @@ class BasePartialProcessor(ABC):
         """
         raise NotImplementedError()
 
-    def process(self) -> List[Tuple]:
+    def process(self) -> list[tuple]:
         """
         Call instance's handler for each record.
         """
@@ -92,7 +101,7 @@ class BasePartialProcessor(ABC):
         """
         raise NotImplementedError()
 
-    def async_process(self) -> List[Tuple]:
+    def async_process(self) -> list[tuple]:
         """
         Async call instance's handler for each record.
 
@@ -135,13 +144,13 @@ class BasePartialProcessor(ABC):
     def __exit__(self, exception_type, exception_value, traceback):
         self._clean()
 
-    def __call__(self, records: List[dict], handler: Callable, lambda_context: Optional[LambdaContext] = None):
+    def __call__(self, records: list[dict], handler: Callable, lambda_context: LambdaContext | None = None):
         """
         Set instance attributes before execution
 
         Parameters
         ----------
-        records: List[dict]
+        records: list[dict]
             List with objects to be processed.
         handler: Callable
             Callable to process "records" entries.
@@ -159,13 +168,13 @@ class BasePartialProcessor(ABC):
         #
         #   Scenario: Injects Lambda context
         #
-        #   def record_handler(record, lambda_context): ... # noqa: E800
-        #   with processor(records=batch, handler=record_handler, lambda_context=context): ... # noqa: E800
+        #   def record_handler(record, lambda_context): ... # noqa: ERA001
+        #   with processor(records=batch, handler=record_handler, lambda_context=context): ... # noqa: ERA001
         #
         #   Scenario: Does NOT inject Lambda context (default)
         #
-        #   def record_handler(record): pass # noqa: E800
-        #   with processor(records=batch, handler=record_handler): ... # noqa: E800
+        #   def record_handler(record): pass # noqa: ERA001
+        #   with processor(records=batch, handler=record_handler): ... # noqa: ERA001
         #
         if lambda_context is None:
             self._handler_accepts_lambda_context = False
@@ -220,17 +229,25 @@ class BasePartialProcessor(ABC):
 
 
 class BasePartialBatchProcessor(BasePartialProcessor):  # noqa
-    DEFAULT_RESPONSE: Dict[str, List[Optional[dict]]] = {"batchItemFailures": []}
+    DEFAULT_RESPONSE: PartialItemFailureResponse = {"batchItemFailures": []}
 
-    def __init__(self, event_type: EventType, model: Optional["BatchTypeModels"] = None):
+    def __init__(
+        self,
+        event_type: EventType,
+        model: BatchTypeModels | None = None,
+        raise_on_entire_batch_failure: bool = True,
+    ):
         """Process batch and partially report failed items
 
         Parameters
         ----------
         event_type: EventType
             Whether this is a SQS, DynamoDB Streams, or Kinesis Data Stream event
-        model: Optional["BatchTypeModels"]
+        model: BatchTypeModels | None
             Parser's data model using either SqsRecordModel, DynamoDBStreamRecordModel, KinesisDataStreamRecord
+        raise_on_entire_batch_failure: bool
+            Raise an exception when the entire batch has failed processing.
+            When set to False, partial failures are reported in the response
 
         Exceptions
         ----------
@@ -239,7 +256,8 @@ class BasePartialBatchProcessor(BasePartialProcessor):  # noqa
         """
         self.event_type = event_type
         self.model = model
-        self.batch_response = copy.deepcopy(self.DEFAULT_RESPONSE)
+        self.raise_on_entire_batch_failure = raise_on_entire_batch_failure
+        self.batch_response: PartialItemFailureResponse = copy.deepcopy(self.DEFAULT_RESPONSE)
         self._COLLECTOR_MAPPING = {
             EventType.SQS: self._collect_sqs_failures,
             EventType.KinesisDataStreams: self._collect_kinesis_failures,
@@ -253,7 +271,7 @@ class BasePartialBatchProcessor(BasePartialProcessor):  # noqa
 
         super().__init__()
 
-    def response(self):
+    def response(self) -> PartialItemFailureResponse:
         """Batch items that failed processing, if any"""
         return self.batch_response
 
@@ -274,7 +292,7 @@ class BasePartialBatchProcessor(BasePartialProcessor):  # noqa
         if not self._has_messages_to_report():
             return
 
-        if self._entire_batch_failed():
+        if self._entire_batch_failed() and self.raise_on_entire_batch_failure:
             raise BatchProcessingError(
                 msg=f"All records failed processing. {len(self.exceptions)} individual errors logged "
                 f"separately below.",
@@ -294,7 +312,7 @@ class BasePartialBatchProcessor(BasePartialProcessor):  # noqa
     def _entire_batch_failed(self) -> bool:
         return len(self.exceptions) == len(self.records)
 
-    def _get_messages_to_report(self) -> List[Dict[str, str]]:
+    def _get_messages_to_report(self) -> list[PartialItemFailures]:
         """
         Format messages to use in batch deletion
         """
@@ -308,8 +326,8 @@ class BasePartialBatchProcessor(BasePartialProcessor):  # noqa
             # If a message failed due to model validation (e.g., poison pill)
             # we convert to an event source data class...but self.model is still true
             # therefore, we do an additional check on whether the failed message is still a model
-            # see https://github.com/awslabs/aws-lambda-powertools-python/issues/2091
-            if self.model and getattr(msg, "parse_obj", None):
+            # see https://github.com/aws-powertools/powertools-lambda-python/issues/2091
+            if self.model and getattr(msg, "model_validate", None):
                 msg_id = msg.messageId
             else:
                 msg_id = msg.message_id
@@ -319,8 +337,8 @@ class BasePartialBatchProcessor(BasePartialProcessor):  # noqa
     def _collect_kinesis_failures(self):
         failures = []
         for msg in self.fail_messages:
-            # # see https://github.com/awslabs/aws-lambda-powertools-python/issues/2091
-            if self.model and getattr(msg, "parse_obj", None):
+            # # see https://github.com/aws-powertools/powertools-lambda-python/issues/2091
+            if self.model and getattr(msg, "model_validate", None):
                 msg_id = msg.kinesis.sequenceNumber
             else:
                 msg_id = msg.kinesis.sequence_number
@@ -330,8 +348,8 @@ class BasePartialBatchProcessor(BasePartialProcessor):  # noqa
     def _collect_dynamodb_failures(self):
         failures = []
         for msg in self.fail_messages:
-            # see https://github.com/awslabs/aws-lambda-powertools-python/issues/2091
-            if self.model and getattr(msg, "parse_obj", None):
+            # see https://github.com/aws-powertools/powertools-lambda-python/issues/2091
+            if self.model and getattr(msg, "model_validate", None):
                 msg_id = msg.dynamodb.SequenceNumber
             else:
                 msg_id = msg.dynamodb.sequence_number
@@ -339,16 +357,20 @@ class BasePartialBatchProcessor(BasePartialProcessor):  # noqa
         return failures
 
     @overload
-    def _to_batch_type(self, record: dict, event_type: EventType, model: "BatchTypeModels") -> "BatchTypeModels":
-        ...  # pragma: no cover
+    def _to_batch_type(
+        self,
+        record: dict,
+        event_type: EventType,
+        model: BatchTypeModels,
+    ) -> BatchTypeModels: ...  # pragma: no cover
 
     @overload
-    def _to_batch_type(self, record: dict, event_type: EventType) -> EventSourceDataClassTypes:
-        ...  # pragma: no cover
+    def _to_batch_type(self, record: dict, event_type: EventType) -> EventSourceDataClassTypes: ...  # pragma: no cover
 
-    def _to_batch_type(self, record: dict, event_type: EventType, model: Optional["BatchTypeModels"] = None):
+    def _to_batch_type(self, record: dict, event_type: EventType, model: BatchTypeModels | None = None):
         if model is not None:
-            return model.parse_obj(record)
+            # If a model is provided, we assume Pydantic is installed and we need to disable v2 warnings
+            return model.model_validate(record)
         return self._DATA_CLASS_MAPPING[event_type](record)
 
     def _register_model_validation_error_record(self, record: dict):
@@ -357,9 +379,9 @@ class BasePartialBatchProcessor(BasePartialProcessor):  # noqa
         # this means we can't collect the message id if we try transforming again
         # so we convert into to the equivalent batch type model (e.g., SQS, Kinesis, DynamoDB Stream)
         # and downstream we can correctly collect the correct message id identifier and make the failed record available
-        # see https://github.com/awslabs/aws-lambda-powertools-python/issues/2091
+        # see https://github.com/aws-powertools/powertools-lambda-python/issues/2091
         logger.debug("Record cannot be converted to customer's model; converting without model")
-        failed_record: "EventSourceDataClassTypes" = self._to_batch_type(record=record, event_type=self.event_type)
+        failed_record: EventSourceDataClassTypes = self._to_batch_type(record=record, event_type=self.event_type)
         return self.failure_handler(record=failed_record, exception=sys.exc_info())
 
 
@@ -449,7 +471,7 @@ class BatchProcessor(BasePartialBatchProcessor):  # Keep old name for compatibil
         logger.info(record.dynamodb.new_image)
         payload: dict = json.loads(record.dynamodb.new_image.get("item"))
         # alternatively:
-        # changes: Dict[str, Any] = record.dynamodb.new_image  # noqa: E800
+        # changes: dict[str, Any] = record.dynamodb.new_image  # noqa: ERA001
         # payload = change.get("Message") -> "<payload>"
         ...
 
@@ -467,7 +489,7 @@ class BatchProcessor(BasePartialBatchProcessor):  # Keep old name for compatibil
     Raises
     ------
     BatchProcessingError
-        When all batch records fail processing
+        When all batch records fail processing and raise_on_entire_batch_failure is True
 
     Limitations
     -----------
@@ -477,7 +499,7 @@ class BatchProcessor(BasePartialBatchProcessor):  # Keep old name for compatibil
     async def _async_process_record(self, record: dict):
         raise NotImplementedError()
 
-    def _process_record(self, record: dict) -> Union[SuccessResponse, FailureResponse]:
+    def _process_record(self, record: dict) -> SuccessResponse | FailureResponse:
         """
         Process a record with instance's handler
 
@@ -486,7 +508,7 @@ class BatchProcessor(BasePartialBatchProcessor):  # Keep old name for compatibil
         record: dict
             A batch record to be processed.
         """
-        data: Optional["BatchTypeModels"] = None
+        data: BatchTypeModels | None = None
         try:
             data = self._to_batch_type(record=record, event_type=self.event_type, model=self.model)
             if self._handler_accepts_lambda_context:
@@ -500,8 +522,13 @@ class BatchProcessor(BasePartialBatchProcessor):  # Keep old name for compatibil
             # we need to handle that exception differently.
             # We check for a public attr in validation errors coming from Pydantic exceptions (subclass or not)
             # and we compare if it's coming from the same model that trigger the exception in the first place
-            model = getattr(exc, "model", None)
-            if model == self.model:
+
+            # Pydantic v1 raises a ValidationError with ErrorWrappers and store the model instance in a class variable.
+            # Pydantic v2 simplifies this by adding a title variable to store the model name directly.
+            model = getattr(exc, "model", None) or getattr(exc, "title", None)
+            model_name = getattr(self.model, "__name__", None)
+
+            if model in (self.model, model_name):
                 return self._register_model_validation_error_record(record)
 
             return self.failure_handler(record=data, exception=sys.exc_info())
@@ -593,7 +620,7 @@ class AsyncBatchProcessor(BasePartialBatchProcessor):
         logger.info(record.dynamodb.new_image)
         payload: dict = json.loads(record.dynamodb.new_image.get("item"))
         # alternatively:
-        # changes: Dict[str, Any] = record.dynamodb.new_image  # noqa: E800
+        # changes: dict[str, Any] = record.dynamodb.new_image  # noqa: ERA001
         # payload = change.get("Message") -> "<payload>"
         ...
 
@@ -611,7 +638,7 @@ class AsyncBatchProcessor(BasePartialBatchProcessor):
     Raises
     ------
     BatchProcessingError
-        When all batch records fail processing
+        When all batch records fail processing and raise_on_entire_batch_failure is True
 
     Limitations
     -----------
@@ -621,7 +648,7 @@ class AsyncBatchProcessor(BasePartialBatchProcessor):
     def _process_record(self, record: dict):
         raise NotImplementedError()
 
-    async def _async_process_record(self, record: dict) -> Union[SuccessResponse, FailureResponse]:
+    async def _async_process_record(self, record: dict) -> SuccessResponse | FailureResponse:
         """
         Process a record with instance's handler
 
@@ -630,7 +657,7 @@ class AsyncBatchProcessor(BasePartialBatchProcessor):
         record: dict
             A batch record to be processed.
         """
-        data: Optional["BatchTypeModels"] = None
+        data: BatchTypeModels | None = None
         try:
             data = self._to_batch_type(record=record, event_type=self.event_type, model=self.model)
             if self._handler_accepts_lambda_context:
@@ -644,8 +671,13 @@ class AsyncBatchProcessor(BasePartialBatchProcessor):
             # we need to handle that exception differently.
             # We check for a public attr in validation errors coming from Pydantic exceptions (subclass or not)
             # and we compare if it's coming from the same model that trigger the exception in the first place
-            model = getattr(exc, "model", None)
-            if model == self.model:
+
+            # Pydantic v1 raises a ValidationError with ErrorWrappers and store the model instance in a class variable.
+            # Pydantic v2 simplifies this by adding a title variable to store the model name directly.
+            model = getattr(exc, "model", None) or getattr(exc, "title", None)
+            model_name = getattr(self.model, "__name__", None)
+
+            if model in (self.model, model_name):
                 return self._register_model_validation_error_record(record)
 
             return self.failure_handler(record=data, exception=sys.exc_info())

@@ -1,12 +1,9 @@
 from datetime import datetime
-from typing import Dict, List, Optional
+from typing import Dict, List, Literal, Optional, Union
 from typing import Type as TypingType
-from typing import Union
 
-from pydantic import BaseModel, root_validator
+from pydantic import BaseModel, model_validator
 from pydantic.networks import HttpUrl
-
-from aws_lambda_powertools.utilities.parser.types import Literal
 
 
 class SnsMsgAttributeModel(BaseModel):
@@ -15,19 +12,19 @@ class SnsMsgAttributeModel(BaseModel):
 
 
 class SnsNotificationModel(BaseModel):
-    Subject: Optional[str]
+    Subject: Optional[str] = None
     TopicArn: str
     UnsubscribeUrl: HttpUrl
     Type: Literal["Notification"]
-    MessageAttributes: Optional[Dict[str, SnsMsgAttributeModel]]
+    MessageAttributes: Optional[Dict[str, SnsMsgAttributeModel]] = None
     Message: Union[str, TypingType[BaseModel]]
     MessageId: str
-    SigningCertUrl: Optional[HttpUrl]  # NOTE: FIFO opt-in removes attribute
-    Signature: Optional[str]  # NOTE: FIFO opt-in removes attribute
+    SigningCertUrl: Optional[HttpUrl] = None  # NOTE: FIFO opt-in removes attribute
+    Signature: Optional[str] = None  # NOTE: FIFO opt-in removes attribute
     Timestamp: datetime
-    SignatureVersion: Optional[str]  # NOTE: FIFO opt-in removes attribute
+    SignatureVersion: Optional[str] = None  # NOTE: FIFO opt-in removes attribute
 
-    @root_validator(pre=True, allow_reuse=True)
+    @model_validator(mode="before")
     def check_sqs_protocol(cls, values):
         sqs_rewritten_keys = ("UnsubscribeURL", "SigningCertURL")
         if any(key in sqs_rewritten_keys for key in values):

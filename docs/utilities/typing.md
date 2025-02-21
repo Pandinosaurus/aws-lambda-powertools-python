@@ -18,7 +18,7 @@ This typing utility provides static typing classes that can be used to ease the 
 ## Getting started
 
 ???+ tip
-    All examples shared in this documentation are available within the [project repository](https://github.com/awslabs/aws-lambda-powertools-python/tree/develop/examples){target="_blank"}.
+    All examples shared in this documentation are available within the [project repository](https://github.com/aws-powertools/powertools-lambda-python/tree/develop/examples){target="_blank"}.
 
 We provide static typing for any context methods or properties implemented by [Lambda context object](https://docs.aws.amazon.com/lambda/latest/dg/python-context.html){target="_blank"}.
 
@@ -38,7 +38,7 @@ Using `LambdaContext` typing makes it possible to access information and hints o
 
 === "working_with_context_function.py"
 
-	```python hl_lines="6 16 25 26"
+	```python hl_lines="6 15 22 23"
     --8<-- "examples/typing/src/working_with_context_function.py"
 	```
 

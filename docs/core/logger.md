@@ -15,14 +15,16 @@ Logger provides an opinionated logger with output structured as JSON.
 ## Getting started
 
 ???+ tip
-    All examples shared in this documentation are available within the [project repository](https://github.com/awslabs/aws-lambda-powertools-python/tree/develop/examples){target="_blank"}.
+    All examples shared in this documentation are available within the [project repository](https://github.com/aws-powertools/powertools-lambda-python/tree/develop/examples){target="_blank"}.
 
 Logger requires two settings:
 
 | Setting           | Description                                                         | Environment variable      | Constructor parameter |
 | ----------------- | ------------------------------------------------------------------- | ------------------------- | --------------------- |
-| **Logging level** | Sets how verbose Logger should be (INFO, by default)                | `LOG_LEVEL`               | `level`               |
+| **Logging level** | Sets how verbose Logger should be (INFO, by default)                | `POWERTOOLS_LOG_LEVEL`    | `level`               |
 | **Service**       | Sets **service** key that will be present across all log statements | `POWERTOOLS_SERVICE_NAME` | `service`             |
+
+There are some [other environment variables](#environment-variables) which can be set to modify Logger's settings at a global scope.
 
 ```yaml hl_lines="12-13" title="AWS Serverless Application Model (SAM) example"
 --8<-- "examples/logger/sam/template.yaml"
@@ -37,7 +39,7 @@ Your Logger will include the following keys to your structured logging:
 | **level**: `str`           | `INFO`                                | Logging level                                                                                                                        |
 | **location**: `str`        | `collect.handler:1`                   | Source code location where statement was executed                                                                                    |
 | **message**: `Any`         | `Collecting payment`                  | Unserializable JSON values are casted as `str`                                                                                       |
-| **timestamp**: `str`       | `2021-05-03 10:20:19,650+0200`        | Timestamp with milliseconds, by default uses local timezone                                                                          |
+| **timestamp**: `str`       | `2021-05-03 10:20:19,650+0000`        | Timestamp with milliseconds, by default uses default AWS Lambda timezone (UTC)                                                       |
 | **service**: `str`         | `payment`                             | Service name defined, by default `service_undefined`                                                                                 |
 | **xray_trace_id**: `str`   | `1-5759e988-bd862e3fe1be46a994272793` | When [tracing is enabled](https://docs.aws.amazon.com/lambda/latest/dg/services-xray.html){target="_blank"}, it shows X-Ray Trace ID |
 | **sampling_rate**: `float` | `0.1`                                 | When enabled, it shows sampling rate in percentage e.g. 10%                                                                          |
@@ -83,10 +85,10 @@ When debugging in non-production environments, you can instruct Logger to log th
 
 ### Setting a Correlation ID
 
-You can set a Correlation ID using `correlation_id_path` param by passing a [JMESPath expression](https://jmespath.org/tutorial.html){target="_blank"}.
+You can set a Correlation ID using `correlation_id_path` param by passing a [JMESPath expression](https://jmespath.org/tutorial.html){target="_blank" rel="nofollow"}, including [our custom JMESPath Functions](../utilities/jmespath_functions.md#powertools_json-function).
 
 ???+ tip
-	You can retrieve correlation IDs via `get_correlation_id` method
+	You can retrieve correlation IDs via `get_correlation_id` method.
 
 === "set_correlation_id.py"
 
@@ -108,7 +110,7 @@ You can set a Correlation ID using `correlation_id_path` param by passing a [JME
 
 #### set_correlation_id method
 
-You can also use `set_correlation_id` method to inject it anywhere else in your code. Example below uses [Event Source Data Classes utility](../utilities/data_classes.md) to easily access events properties.
+You can also use `set_correlation_id` method to inject it anywhere else in your code. Example below uses [Event Source Data Classes utility](../utilities/data_classes.md){target="_blank"} to easily access events properties.
 
 === "set_correlation_id_method.py"
 
@@ -157,13 +159,14 @@ To ease routine tasks like extracting correlation ID from popular event sources,
 
 You can append additional keys using either mechanism:
 
-* Persist new keys across all future log messages via `append_keys` method
+* New keys persist across all future log messages via `append_keys` method
 * Add additional keys on a per log message basis as a keyword=value, or via `extra` parameter
+* New keys persist across all future logs in a specific thread via `thread_safe_append_keys` method. Check [Working with thread-safe keys](#working-with-thread-safe-keys) section.
 
 #### append_keys method
 
 ???+ warning
-	`append_keys` is not thread-safe, please see [RFC](https://github.com/awslabs/aws-lambda-powertools-python/issues/991){target="_blank"}.
+    `append_keys` is not thread-safe, use [thread_safe_append_keys](#appending-thread-safe-additional-keys) instead
 
 You can append your own keys to your existing Logger via `append_keys(**additional_key_values)` method.
 
@@ -183,6 +186,25 @@ You can append your own keys to your existing Logger via `append_keys(**addition
     If you conditionally add keys depending on the payload, you can follow the example above.
 
     This example will add `order_id` if its value is not empty, and in subsequent invocations where `order_id` might not be present it'll remove it from the Logger.
+
+#### append_context_keys method
+
+???+ warning
+	`append_context_keys` is not thread-safe.
+
+The append_context_keys method allows temporary modification of a Logger instance's context without creating a new logger. It's useful for adding context keys to specific workflows while maintaining the logger's overall state and simplicity.
+
+=== "append_context_keys.py"
+
+    ```python hl_lines="7 8"
+    --8<-- "examples/logger/src/append_context_keys.py"
+    ```
+
+=== "append_context_keys_output.json"
+
+    ```json hl_lines="8 9"
+    --8<-- "examples/logger/src/append_context_keys.json"
+    ```
 
 #### ephemeral metadata
 
@@ -226,6 +248,16 @@ It accepts any dictionary, and all keyword arguments will be added as part of th
 
 ### Removing additional keys
 
+You can remove additional keys using either mechanism:
+
+* Remove new keys across all future log messages via `remove_keys` method
+* Remove keys persist across all future logs in a specific thread via `thread_safe_remove_keys` method. Check [Working with thread-safe keys](#working-with-thread-safe-keys) section.
+
+???+ danger
+    Keys added by `append_keys` can only be removed by `remove_keys` and thread-local keys added by `thread_safe_append_keys` can only be removed by `thread_safe_remove_keys` or `thread_safe_clear_keys`. Thread-local and normal logger keys are distinct values and can't be manipulated interchangeably.
+
+#### remove_keys method
+
 You can remove any additional key from Logger state using `remove_keys`.
 
 === "remove_keys.py"
@@ -242,13 +274,15 @@ You can remove any additional key from Logger state using `remove_keys`.
 
 #### Clearing all state
 
-Logger is commonly initialized in the global scope. Due to [Lambda Execution Context reuse](https://docs.aws.amazon.com/lambda/latest/dg/runtimes-context.html), this means that custom keys can be persisted across invocations. If you want all custom keys to be deleted, you can use `clear_state=True` param in `inject_lambda_context` decorator.
+##### Decorator with clear_state
+
+Logger is commonly initialized in the global scope. Due to [Lambda Execution Context reuse](https://docs.aws.amazon.com/lambda/latest/dg/runtimes-context.html){target="_blank"}, this means that custom keys can be persisted across invocations. If you want all custom keys to be deleted, you can use `clear_state=True` param in `inject_lambda_context` decorator.
 
 ???+ tip "Tip: When is this useful?"
     It is useful when you add multiple custom keys conditionally, instead of setting a default `None` value if not present. Any key with `None` value is automatically removed by Logger.
 
 ???+ danger "Danger: This can have unintended side effects if you use Layers"
-    Lambda Layers code is imported before the Lambda handler.
+    Lambda Layers code is imported before the Lambda handler. When a Lambda function starts, it first imports and executes all code in the Layers (including any global scope code) before proceeding to the function's own code.
 
     This means that `clear_state=True` will instruct Logger to remove any keys previously added before Lambda handler execution proceeds.
 
@@ -271,6 +305,114 @@ Logger is commonly initialized in the global scope. Due to [Lambda Execution Con
     ```json hl_lines="7"
     --8<-- "examples/logger/src/clear_state_event_two.json"
     ```
+
+##### clear_state method
+
+You can call `clear_state()` as a method explicitly within your code to clear appended keys at any point during the execution of your Lambda invocation.
+
+=== "clear_state_method.py"
+
+    ```python hl_lines="12"
+    --8<-- "examples/logger/src/clear_state_method.py"
+    ```
+=== "Output before clear_state()"
+
+    ```json hl_lines="9 17"
+    --8<-- "examples/logger/src/before_clear_state.json"
+    ```
+
+=== "Output after clear_state()"
+
+    ```json hl_lines="4"
+    --8<-- "examples/logger/src/after_clear_state.json"
+    ```
+
+### Accessing currently configured keys
+
+You can view all currently configured keys from the Logger state using the `get_current_keys()` method. This method is useful when you need to avoid overwriting keys that are already configured.
+
+=== "get_current_keys.py"
+
+    ```python hl_lines="4 11"
+    --8<-- "examples/logger/src/get_current_keys.py"
+    ```
+
+???+ info
+    For thread-local additional logging keys, use `get_current_thread_keys` instead
+
+### Log levels
+
+The default log level is `INFO`. It can be set using the `level` constructor option, `setLevel()` method or by using the `POWERTOOLS_LOG_LEVEL` environment variable.
+
+We support the following log levels:
+
+| Level      | Numeric value | Standard logging   |
+| ---------- | ------------- | ------------------ |
+| `DEBUG`    | 10            | `logging.DEBUG`    |
+| `INFO`     | 20            | `logging.INFO`     |
+| `WARNING`  | 30            | `logging.WARNING`  |
+| `ERROR`    | 40            | `logging.ERROR`    |
+| `CRITICAL` | 50            | `logging.CRITICAL` |
+
+If you want to access the numeric value of the current log level, you can use the `log_level` property. For example, if the current log level is `INFO`, `logger.log_level` property will return `20`.
+
+=== "setting_log_level_constructor.py"
+
+    ```python hl_lines="3"
+    --8<-- "examples/logger/src/setting_log_level_via_constructor.py"
+    ```
+
+=== "setting_log_level_programmatically.py"
+
+    ```python hl_lines="6 9 12"
+    --8<-- "examples/logger/src/setting_log_level_programmatically.py"
+    ```
+
+#### AWS Lambda Advanced Logging Controls (ALC)
+
+!!! question "When is it useful?"
+    When you want to set a logging policy to drop informational or verbose logs for one or all AWS Lambda functions, regardless of runtime and logger used.
+
+<!-- markdownlint-disable MD013 -->
+With [AWS Lambda Advanced Logging Controls (ALC)](https://docs.aws.amazon.com/lambda/latest/dg/monitoring-cloudwatchlogs.html#monitoring-cloudwatchlogs-advanced){target="_blank"}, you can enforce a minimum log level that Lambda will accept from your application code.
+
+When enabled, you should keep `Logger` and ALC log level in sync to avoid data loss.
+
+Here's a sequence diagram to demonstrate how ALC will drop both `INFO` and `DEBUG` logs emitted from `Logger`, when ALC log level is stricter than `Logger`.
+<!-- markdownlint-enable MD013 -->
+
+```mermaid
+sequenceDiagram
+    title Lambda ALC allows WARN logs only
+    participant Lambda service
+    participant Lambda function
+    participant Application Logger
+
+    Note over Lambda service: AWS_LAMBDA_LOG_LEVEL="WARN"
+    Note over Application Logger: POWERTOOLS_LOG_LEVEL="DEBUG"
+
+    Lambda service->>Lambda function: Invoke (event)
+    Lambda function->>Lambda function: Calls handler
+    Lambda function->>Application Logger: logger.error("Something happened")
+    Lambda function-->>Application Logger: logger.debug("Something happened")
+    Lambda function-->>Application Logger: logger.info("Something happened")
+    Lambda service--xLambda service: DROP INFO and DEBUG logs
+    Lambda service->>CloudWatch Logs: Ingest error logs
+```
+
+**Priority of log level settings in Powertools for AWS Lambda**
+
+We prioritise log level settings in this order:
+
+1. `AWS_LAMBDA_LOG_LEVEL` environment variable
+2. Explicit log level in `Logger` constructor, or by calling the `logger.setLevel()` method
+3. `POWERTOOLS_LOG_LEVEL` environment variable
+
+If you set `Logger` level lower than ALC, we will emit a warning informing you that your messages will be discarded by Lambda.
+
+> **NOTE**
+>
+> With ALC enabled, we are unable to increase the minimum log level below the `AWS_LAMBDA_LOG_LEVEL` environment variable value, see [AWS Lambda service documentation](https://docs.aws.amazon.com/lambda/latest/dg/monitoring-cloudwatchlogs.html#monitoring-cloudwatchlogs-log-level){target="_blank"} for more details.
 
 ### Logging exceptions
 
@@ -301,7 +443,7 @@ Logger can optionally log uncaught exceptions by setting `log_uncaught_exception
 
 ??? question "What are uncaught exceptions?"
 
-    It's any raised exception that wasn't handled by the [`except` statement](https://docs.python.org/3.9/tutorial/errors.html#handling-exceptions){target="_blank"}, leading a Python program to a non-successful exit.
+    It's any raised exception that wasn't handled by the [`except` statement](https://docs.python.org/3.9/tutorial/errors.html#handling-exceptions){target="_blank" rel="nofollow"}, leading a Python program to a non-successful exit.
 
     They are typically raised intentionally to signal a problem (`raise ValueError`), or a propagated exception from elsewhere in your code that you didn't handle it willingly or not (`KeyError`, `jsonDecoderError`, etc.).
 
@@ -317,16 +459,32 @@ Logger can optionally log uncaught exceptions by setting `log_uncaught_exception
     --8<-- "examples/logger/src/logging_uncaught_exceptions_output.json"
     ```
 
+#### Stack trace logging
+
+By default, the Logger will automatically include the full stack trace in JSON format when using `logger.exception`. If you want to disable this feature, set `serialize_stacktrace=False` during initialization."
+
+=== "logging_stacktrace.py"
+
+    ```python hl_lines="7 15"
+    --8<-- "examples/logger/src/logging_stacktrace.py"
+    ```
+
+=== "logging_stacktrace_output.json"
+
+    ```json hl_lines="9-27"
+    --8<-- "examples/logger/src/logging_stacktrace_output.json"
+    ```
+
 ### Date formatting
 
-Logger uses Python's standard logging date format with the addition of timezone: `2021-05-03 11:47:12,494+0200`.
+Logger uses Python's standard logging date format with the addition of timezone: `2021-05-03 11:47:12,494+0000`.
 
 You can easily change the date format using one of the following parameters:
 
-* **`datefmt`**. You can pass any [strftime format codes](https://strftime.org/){target="_blank"}. Use `%F` if you need milliseconds.
-* **`use_rfc3339`**. This flag will use a format compliant with both RFC3339 and ISO8601: `2022-10-27T16:27:43.738+02:00`
+* **`datefmt`**. You can pass any [strftime format codes](https://strftime.org/){target="_blank" rel="nofollow"}. Use `%F` if you need milliseconds.
+* **`use_rfc3339`**. This flag will use a format compliant with both RFC3339 and ISO8601: `2022-10-27T16:27:43.738+00:00`
 
-???+ tip "Prefer using [datetime string formats](https://docs.python.org/3/library/datetime.html#strftime-and-strptime-format-codes){target="_blank"}?"
+???+ tip "Prefer using [datetime string formats](https://docs.python.org/3/library/datetime.html#strftime-and-strptime-format-codes){target="_blank" rel="nofollow"}?"
 	Use `use_datetime_directive` flag along with `datefmt` to instruct Logger to use `datetime` instead of `time.strftime`.
 
 === "date_formatting.py"
@@ -340,6 +498,19 @@ You can easily change the date format using one of the following parameters:
     ```json hl_lines="6 13"
     --8<-- "examples/logger/src/date_formatting_output.json"
     ```
+
+### Environment variables
+
+The following environment variables are available to configure Logger at a global scope:
+
+| Setting                   | Description                                                                                            | Environment variable                    | Default      |
+| ------------------------- | ------------------------------------------------------------------------------------------------------ | --------------------------------------- | ------------ |
+| **Event Logging**         | Whether to log the incoming event.                                                                     | `POWERTOOLS_LOGGER_LOG_EVENT`           | `false`      |
+| **Debug Sample Rate**     | Sets the debug log sampling.                                                                           | `POWERTOOLS_LOGGER_SAMPLE_RATE`         | `0`          |
+| **Disable Deduplication** | Disables log deduplication filter protection to use Pytest Live Log feature.                           | `POWERTOOLS_LOG_DEDUPLICATION_DISABLED` | `false`      |
+| **TZ**                    | Sets timezone when using Logger, e.g., `US/Eastern`. Timezone is defaulted to UTC when `TZ` is not set | `TZ`                                    | `None` (UTC) |
+
+[`POWERTOOLS_LOGGER_LOG_EVENT`](#logging-incoming-event) can also be set on a per-method basis, and [`POWERTOOLS_LOGGER_SAMPLE_RATE`](#sampling-debug-logs) on a per-instance basis. These parameter values will override the environment variable value.
 
 ## Advanced
 
@@ -358,11 +529,73 @@ You can use any of the following built-in JMESPath expressions as part of [injec
 | **APPLICATION_LOAD_BALANCER** | `'headers."x-amzn-trace-id"'`         | ALB X-Ray Trace ID              |
 | **EVENT_BRIDGE**              | `"id"`                                | EventBridge Event ID            |
 
+### Working with thread-safe keys
+
+#### Appending thread-safe additional keys
+
+You can append your own thread-local keys in your existing Logger via the `thread_safe_append_keys` method
+
+=== "thread_safe_append_keys.py"
+
+    ```python hl_lines="11"
+    --8<-- "examples/logger/src/thread_safe_append_keys.py"
+    ```
+
+=== "thread_safe_append_keys_output.json"
+
+    ```json hl_lines="8 9 17 18"
+    --8<-- "examples/logger/src/thread_safe_append_keys_output.json"
+    ```
+
+#### Removing thread-safe additional keys
+
+You can remove any additional thread-local keys from Logger using either `thread_safe_remove_keys` or `thread_safe_clear_keys`.
+
+Use the `thread_safe_remove_keys` method to remove a list of thread-local keys that were previously added using the `thread_safe_append_keys` method.
+
+=== "thread_safe_remove_keys.py"
+
+    ```python hl_lines="13"
+    --8<-- "examples/logger/src/thread_safe_remove_keys.py"
+    ```
+
+=== "thread_safe_remove_keys_output.json"
+
+    ```json hl_lines="8 9 17 18 26 34"
+    --8<-- "examples/logger/src/thread_safe_remove_keys_output.json"
+    ```
+
+#### Clearing thread-safe additional keys
+
+Use the `thread_safe_clear_keys` method to remove all thread-local keys that were previously added using the `thread_safe_append_keys` method.
+
+=== "thread_safe_clear_keys.py"
+
+    ```python hl_lines="13"
+    --8<-- "examples/logger/src/thread_safe_clear_keys.py"
+    ```
+
+=== "thread_safe_clear_keys_output.json"
+
+    ```json hl_lines="8 9 17 18"
+    --8<-- "examples/logger/src/thread_safe_clear_keys_output.json"
+    ```
+
+#### Accessing thread-safe currently keys
+
+You can view all currently thread-local keys from the Logger state using the `thread_safe_get_current_keys()` method. This method is useful when you need to avoid overwriting keys that are already configured.
+
+=== "thread_safe_get_current_keys.py"
+
+    ```python hl_lines="13"
+    --8<-- "examples/logger/src/thread_safe_get_current_keys.py"
+    ```
+
 ### Reusing Logger across your code
 
-Similar to [Tracer](./tracer.md#reusing-tracer-across-your-code), a new instance that uses the same `service` name - env var or explicit parameter - will reuse a previous Logger instance. Just like `logging.getLogger("logger_name")` would in the standard library if called with the same logger name.
+Similar to [Tracer](./tracer.md#reusing-tracer-across-your-code){target="_blank"}, a new instance that uses the same `service` name will reuse a previous Logger instance.
 
-Notice in the CloudWatch Logs output how `payment_id` appeared as expected when logging in `collect.py`.
+Notice in the CloudWatch Logs output how `payment_id` appears as expected when logging in `collect.py`.
 
 === "logger_reuse.py"
 
@@ -381,7 +614,6 @@ Notice in the CloudWatch Logs output how `payment_id` appeared as expected when 
     ```json hl_lines="12"
     --8<-- "examples/logger/src/logger_reuse_output.json"
     ```
-
 ???+ note "Note: About Child Loggers"
     Coming from standard library, you might be used to use `logging.getLogger(__name__)`. This will create a new instance of a Logger with a different name.
 
@@ -407,7 +639,7 @@ You can use values ranging from `0.0` to `1` (100%) when setting `POWERTOOLS_LOG
 Sampling decision happens at the Logger initialization. This means sampling may happen significantly more or less than depending on your traffic patterns, for example a steady low number of invocations and thus few cold starts.
 
 ???+ note
-	Open a [feature request](https://github.com/awslabs/aws-lambda-powertools-python/issues/new?assignees=&labels=feature-request%2C+triage&template=feature_request.md&title=) if you want Logger to calculate sampling for every invocation
+	Open a [feature request](https://github.com/aws-powertools/powertools-lambda-python/issues/new?assignees=&labels=feature-request%2C+triage&template=feature_request.md&title=){target="_blank"} if you want Logger to calculate sampling for every invocation
 
 === "sampling_debug_logs.py"
 
@@ -434,20 +666,40 @@ If you prefer configuring it separately, or you'd want to bring this JSON Format
 | **`json_default`**           | function to coerce unserializable values, when no custom serializer/deserializer is set                                  | `str`                                                         |
 | **`datefmt`**                | string directives (strftime) to format log timestamp                                                                     | `%Y-%m-%d %H:%M:%S,%F%z`, where `%F` is a custom ms directive |
 | **`use_datetime_directive`** | format the `datefmt` timestamps using `datetime`, not `time`  (also supports the custom `%F` directive for milliseconds) | `False`                                                       |
-| **`utc`**                    | set logging timestamp to UTC                                                                                             | `False`                                                       |
+| **`utc`**                    | enforce logging timestamp to UTC (ignore `TZ` environment variable)                                                      | `False`                                                       |
 | **`log_record_order`**       | set order of log keys when logging                                                                                       | `["level", "location", "message", "timestamp"]`               |
 | **`kwargs`**                 | key-value to be included in log messages                                                                                 | `None`                                                        |
 
 ???+ info
     When `POWERTOOLS_DEV` env var is present and set to `"true"`, Logger's default serializer (`json.dumps`) will pretty-print log messages for easier readability.
 
-```python hl_lines="2 7-8" title="Pre-configuring Lambda Powertools Formatter"
+```python hl_lines="2 7-8" title="Pre-configuring Powertools for AWS Lambda (Python) Formatter"
 --8<-- "examples/logger/src/powertools_formatter_setup.py"
+```
+
+### Observability providers
+
+!!! note "In this context, an observability provider is an [AWS Lambda Partner](https://go.aws/3HtU6CZ){target="_blank" rel="nofollow"} offering a platform for logging, metrics, traces, etc."
+
+You can send logs to the observability provider of your choice via [Lambda Extensions](https://aws.amazon.com/blogs/compute/using-aws-lambda-extensions-to-send-logs-to-custom-destinations/){target="_blank"}. In most cases, you shouldn't need any custom Logger configuration, and logs will be shipped async without any performance impact.
+
+#### Built-in formatters
+
+In rare circumstances where JSON logs are not parsed correctly by your provider, we offer built-in formatters to make this transition easier.
+
+| Provider | Formatter             | Notes                                                |
+| -------- | --------------------- | ---------------------------------------------------- |
+| Datadog  | `DatadogLogFormatter` | Modifies default timestamp to use RFC3339 by default |
+
+You can use import and use them as any other Logger formatter via `logger_formatter` parameter:
+
+```python hl_lines="2 4" title="Using built-in Logger Formatters"
+--8<-- "examples/logger/src/observability_provider_builtin_formatters.py"
 ```
 
 ### Migrating from other Loggers
 
-If you're migrating from other Loggers, there are few key points to be aware of: [Service parameter](#the-service-parameter), [Inheriting Loggers](#inheriting-loggers), [Overriding Log records](#overriding-log-records), and [Logging exceptions](#logging-exceptions).
+If you're migrating from other Loggers, there are few key points to be aware of: [Service parameter](#the-service-parameter), [Child Loggers](#child-loggers), [Overriding Log records](#overriding-log-records), and [Logging exceptions](#logging-exceptions).
 
 #### The service parameter
 
@@ -455,37 +707,24 @@ Service is what defines the Logger name, including what the Lambda function is r
 
 For Logger, the `service` is the logging key customers can use to search log operations for one or more functions - For example, **search for all errors, or messages like X, where service is payment**.
 
-#### Inheriting Loggers
+#### Child Loggers
 
-??? tip "Tip: Prefer [Logger Reuse feature](#reusing-logger-across-your-code) over inheritance unless strictly necessary, [see caveats.](#reusing-logger-across-your-code)"
+<center>
+```mermaid
+stateDiagram-v2
+    direction LR
+    Parent: Logger()
+    Child: Logger(child=True)
+    Parent --> Child: bi-directional updates
+    Note right of Child
+        Both have the same service
+    end note
+```
+</center>
 
-> Python Logging hierarchy happens via the dot notation: `service`, `service.child`, `service.child_2`
+For inheritance, Logger uses `child` parameter to ensure we don't compete with its parents config. We name child Loggers following Python's convention: _`{service}`.`{filename}`_.
 
-For inheritance, Logger uses a `child=True` parameter along with `service` being the same value across Loggers.
-
-For child Loggers, we introspect the name of your module where `Logger(child=True, service="name")` is called, and we name your Logger as **{service}.{filename}**.
-
-???+ danger
-    A common issue when migrating from other Loggers is that `service` might be defined in the parent Logger (no child param), and not defined in the child Logger:
-
-=== "logging_inheritance_bad.py"
-
-    ```python hl_lines="1 9"
-    --8<-- "examples/logger/src/logging_inheritance_bad.py"
-    ```
-
-=== "logging_inheritance_module.py"
-
-    ```python hl_lines="1 9"
-    --8<-- "examples/logger/src/logging_inheritance_module.py"
-    ```
-
-In this case, Logger will register a Logger named `payment`, and a Logger named `service_undefined`. The latter isn't inheriting from the parent, and will have no handler, resulting in no message being logged to standard output.
-
-???+ tip
-    This can be fixed by either ensuring both has the `service` value as `payment`, or simply use the environment variable `POWERTOOLS_SERVICE_NAME` to ensure service value will be the same across all Loggers when not explicitly set.
-
-Do this instead:
+Changes are bidirectional between parents and loggers. That is, appending a key in a child or parent will ensure both have them. This means, having the same `service` name is important when instantiating them.
 
 === "logging_inheritance_good.py"
 
@@ -494,7 +733,24 @@ Do this instead:
     ```
 
 === "logging_inheritance_module.py"
+    ```python hl_lines="1 9"
+    --8<-- "examples/logger/src/logging_inheritance_module.py"
+    ```
 
+There are two important side effects when using child loggers:
+
+1. **Service name mismatch**. Logging messages will be dropped as child loggers don't have logging handlers.
+    * Solution: use `POWERTOOLS_SERVICE_NAME` env var. Alternatively, use the same service explicit value.
+2. **Changing state before a parent instantiate**. Using `logger.append_keys` or `logger.remove_keys` without a parent Logger will lead to `OrphanedChildLoggerError` exception.
+    * Solution: always initialize parent Loggers first. Alternatively, move calls to `append_keys`/`remove_keys` from the child at a later stage.
+
+=== "logging_inheritance_bad.py"
+
+    ```python hl_lines="1 9"
+    --8<-- "examples/logger/src/logging_inheritance_bad.py"
+    ```
+
+=== "logging_inheritance_module.py"
     ```python hl_lines="1 9"
     --8<-- "examples/logger/src/logging_inheritance_module.py"
     ```
@@ -533,17 +789,26 @@ You can change the order of [standard Logger keys](#standard-structured-keys) or
     --8<-- "examples/logger/src/reordering_log_keys_output.json"
     ```
 
-#### Setting timestamp to UTC
+#### Setting timestamp to custom Timezone
 
-By default, this Logger and standard logging library emits records using local time timestamp. You can override this behavior via `utc` parameter:
+By default, this Logger and the standard logging library emit records with the default AWS Lambda timestamp in **UTC**.
 
-=== "setting_utc_timestamp.py"
+<!-- markdownlint-disable MD013 -->
+If you prefer to log in a specific timezone, you can configure it by setting the `TZ` environment variable. You can do this either as an AWS Lambda environment variable or directly within your Lambda function settings. [Click here](https://docs.aws.amazon.com/lambda/latest/dg/configuration-envvars.html#configuration-envvars-runtime){target="_blank"} for a comprehensive list of available Lambda environment variables.
+<!-- markdownlint-enable MD013 -->
 
-    ```python hl_lines="6"
+???+ tip
+    `TZ` environment variable will be ignored if `utc` is set to `True`
+
+=== "setting_custom_timezone.py"
+
+    ```python hl_lines="9 12"
     --8<-- "examples/logger/src/setting_utc_timestamp.py"
     ```
 
-=== "setting_utc_timestamp_output.json"
+    1.  if you set TZ in your Lambda function, `time.tzset()` need to be called. You don't need it when setting TZ in AWS Lambda environment variable
+
+=== "setting_custom_timezone_output.json"
 
     ```json hl_lines="6 13"
     --8<-- "examples/logger/src/setting_utc_timestamp_output.json"
@@ -584,7 +849,7 @@ For these, you can override the `serialize` method from [LambdaPowertoolsFormatt
 
 === "bring_your_own_formatter.py"
 
-    ```python hl_lines="2 5-6 12"
+    ```python hl_lines="2-3 6 11-12 15"
     --8<-- "examples/logger/src/bring_your_own_formatter.py"
     ```
 
@@ -598,7 +863,7 @@ The `log` argument is the final log record containing [our standard keys](#stand
 For exceptional cases where you want to completely replace our formatter logic, you can subclass `BasePowertoolsFormatter`.
 
 ???+ warning
-    You will need to implement `append_keys`, `clear_state`, override `format`, and optionally `remove_keys` to keep the same feature set Powertools Logger provides. This also means keeping state of logging keys added.
+    You will need to implement `append_keys`, `clear_state`, override `format`, and optionally `get_current_keys`, and `remove_keys` to keep the same feature set Powertools for AWS Lambda (Python) Logger provides. This also means tracking the added logging keys.
 
 === "bring_your_own_formatter_from_scratch.py"
 
@@ -614,7 +879,7 @@ For exceptional cases where you want to completely replace our formatter logic, 
 
 #### Bring your own JSON serializer
 
-By default, Logger uses `json.dumps` and `json.loads` as serializer and deserializer respectively. There could be scenarios where you are making use of alternative JSON libraries like [orjson](https://github.com/ijl/orjson){target="_blank"}.
+By default, Logger uses `json.dumps` and `json.loads` as serializer and deserializer respectively. There could be scenarios where you are making use of alternative JSON libraries like [orjson](https://github.com/ijl/orjson){target="_blank" rel="nofollow"}.
 
 As parameters don't always translate well between them, you can pass any callable that receives a `dict` and return a `str`:
 
@@ -631,7 +896,6 @@ When unit testing your code that makes use of `inject_lambda_context` decorator,
 This is a Pytest sample that provides the minimum information necessary for Logger to succeed:
 
 === "fake_lambda_context_for_logger.py"
-    Note that dataclasses are available in Python 3.7+ only.
 
     ```python
     --8<-- "examples/logger/src/fake_lambda_context_for_logger.py"
@@ -644,7 +908,7 @@ This is a Pytest sample that provides the minimum information necessary for Logg
     ```
 
 ???+ tip
-	Check out the built-in [Pytest caplog fixture](https://docs.pytest.org/en/latest/how-to/logging.html){target="_blank"} to assert plain log messages
+	Check out the built-in [Pytest caplog fixture](https://docs.pytest.org/en/latest/how-to/logging.html){target="_blank" rel="nofollow"} to assert plain log messages
 
 ### Pytest live log feature
 
@@ -668,14 +932,15 @@ for the given name and level to the logging module. By default, this logs all bo
 ---8<-- "examples/logger/src/enabling_boto_logging.py"
 ```
 
-### How can I enable Powertools logging for imported libraries?
+### How can I enable Powertools for AWS Lambda (Python) logging for imported libraries?
 
 You can copy the Logger setup to all or sub-sets of registered external loggers. Use the `copy_config_to_registered_logger` method to do this.
 
-???+ tip
-    To help differentiate between loggers, we include the standard logger `name` attribute for all loggers we copied configuration to.
+!!! tip "We include the logger `name` attribute for all loggers we copied configuration to help you differentiate them."
 
-By default all registered loggers will be modified. You can change this behavior by providing `include` and `exclude` attributes. You can also provide optional `log_level` attribute external loggers will be configured with.
+By default all registered loggers will be modified. You can change this behavior by providing `include` and `exclude` attributes.
+
+You can also provide optional `log_level` attribute external top-level loggers will be configured with, by default it'll use the source logger log level. You can opt-out by using `ignore_log_level=True` parameter.
 
 ```python hl_lines="10" title="Cloning Logger config to all other registered standard loggers"
 ---8<-- "examples/logger/src/cloning_logger_config.py"
@@ -683,7 +948,7 @@ By default all registered loggers will be modified. You can change this behavior
 
 ### How can I add standard library logging attributes to a log record?
 
-The Python standard library log records contains a [large set of attributes](https://docs.python.org/3/library/logging.html#logrecord-attributes){target="_blank"}, however only a few are included in Powertools Logger log record by default.
+The Python standard library log records contains a [large set of attributes](https://docs.python.org/3/library/logging.html#logrecord-attributes){target="_blank" rel="nofollow"}, however only a few are included in Powertools for AWS Lambda (Python) Logger log record by default.
 
 You can include any of these logging attributes as key value arguments (`kwargs`) when instantiating `Logger` or `LambdaPowertoolsFormatter`.
 
@@ -701,7 +966,7 @@ You can also add them later anywhere in your code with `append_keys`, or remove 
     ---8<-- "examples/logger/src/append_and_remove_keys_output.json"
     ```
 
-For log records originating from Powertools Logger, the `name` attribute will be the same as `service`, for log records coming from standard library logger, it will be the name of the logger (i.e. what was used as name argument to `logging.getLogger`).
+For log records originating from Powertools for AWS Lambda (Python) Logger, the `name` attribute will be the same as `service`, for log records coming from standard library logger, it will be the name of the logger (i.e. what was used as name argument to `logging.getLogger`).
 
 ### What's the difference between `append_keys` and `extra`?
 
@@ -721,6 +986,7 @@ Here's an example where we persist `payment_id` not `request_id`. Note that `pay
     ---8<-- "examples/logger/src/append_keys_vs_extra_output.json"
     ```
 
-### How do I aggregate and search Powertools logs across accounts?
+<!-- markdownlint-disable MD013 -->
+### How do I aggregate and search Powertools for AWS Lambda (Python) logs across accounts?
 
-As of now, ElasticSearch (ELK) or 3rd party solutions are best suited to this task. Please refer to this [discussion for more details](https://github.com/awslabs/aws-lambda-powertools-python/issues/460)
+As of now, ElasticSearch (ELK) or 3rd party solutions are best suited to this task. Please refer to this [discussion for more details](https://github.com/aws-powertools/powertools-lambda-python/issues/460){target="_blank"}

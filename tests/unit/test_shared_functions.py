@@ -1,22 +1,30 @@
 import os
 import warnings
 from dataclasses import dataclass
+from pathlib import Path
 
 import pytest
 from pydantic import BaseModel
 
 from aws_lambda_powertools.shared import constants
 from aws_lambda_powertools.shared.functions import (
+    abs_lambda_path,
     extract_event_from_common_models,
     powertools_debug_is_set,
     powertools_dev_is_set,
     resolve_env_var_choice,
     resolve_max_age,
     resolve_truthy_env_var_choice,
+    sanitize_xray_segment_name,
     strtobool,
 )
 from aws_lambda_powertools.utilities.data_classes.common import DictWrapper
 from aws_lambda_powertools.utilities.parameters.base import DEFAULT_MAX_AGE_SECS
+
+
+@pytest.fixture
+def default_lambda_path():
+    return "/var/task"
 
 
 def test_resolve_env_var_choice_explicit_wins_over_env_var():
@@ -138,3 +146,57 @@ def test_resolve_max_age_env_var_wins_over_default_value(monkeypatch: pytest.Mon
 
     # THEN the result must be the environment variable value
     assert max_age == 20
+
+
+def test_abs_lambda_path_empty():
+    # Given Env is not set
+    os.environ["LAMBDA_TASK_ROOT"] = ""
+    # Then path = os.getcwd
+    assert abs_lambda_path() == f"{Path.cwd()}"
+
+
+def test_abs_lambda_path_empty_envvar(default_lambda_path):
+    # Given Env is set
+    os.environ["LAMBDA_TASK_ROOT"] = default_lambda_path
+    # Then path = Env/
+    assert abs_lambda_path() == default_lambda_path
+
+
+def test_abs_lambda_path_w_filename():
+    # Given Env is not set and relative_path provided
+    relatvie_path = "cert/pub.cert"
+    os.environ["LAMBDA_TASK_ROOT"] = ""
+    # Then path = os.getcwd + relative_path
+    assert abs_lambda_path(relatvie_path) == str(Path(Path.cwd(), relatvie_path))
+
+
+def test_abs_lambda_path_w_filename_envvar(default_lambda_path):
+    # Given Env is set and relative_path provided
+    relative_path = "cert/pub.cert"
+    os.environ["LAMBDA_TASK_ROOT"] = default_lambda_path
+    # Then path = env + relative_path
+    assert abs_lambda_path(relative_path="cert/pub.cert") == str(Path(os.environ["LAMBDA_TASK_ROOT"], relative_path))
+
+
+def test_sanitize_xray_segment_name():
+    # GIVEN a name with invalid characters
+    invalid_name = "app?;*.lambda_function.(<locals>).get_todos!$~^<>"
+
+    # WHEN we sanitize this name by removing invalid characters
+    sanitized_name = sanitize_xray_segment_name(invalid_name)
+
+    # THEN the sanitized name should not contain invalid characters
+    expected_name = "app.lambda_function.locals.get_todos"
+    assert sanitized_name == expected_name
+
+
+def test_sanitize_xray_segment_name_with_no_special_characters():
+    # GIVEN a name without any invalid characters
+    valid_name = "app#lambda_function"
+
+    # WHEN we sanitize this name
+    sanitized_name = sanitize_xray_segment_name(valid_name)
+
+    # THEN the sanitized name remains the same as the original name
+    expected_name = valid_name
+    assert sanitized_name == expected_name

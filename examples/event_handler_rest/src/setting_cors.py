@@ -1,3 +1,5 @@
+from urllib.parse import quote
+
 import requests
 from requests import Response
 
@@ -8,7 +10,8 @@ from aws_lambda_powertools.utilities.typing import LambdaContext
 
 tracer = Tracer()
 logger = Logger()
-cors_config = CORSConfig(allow_origin="https://example.com", max_age=300)
+# CORS will match when Origin is only https://www.example.com
+cors_config = CORSConfig(allow_origin="https://www.example.com", max_age=300)
 app = APIGatewayRestResolver(cors=cors_config)
 
 
@@ -25,6 +28,7 @@ def get_todos():
 @app.get("/todos/<todo_id>")
 @tracer.capture_method
 def get_todo_by_id(todo_id: str):  # value come as str
+    todo_id = quote(todo_id, safe="")
     todos: Response = requests.get(f"https://jsonplaceholder.typicode.com/todos/{todo_id}")
     todos.raise_for_status()
 

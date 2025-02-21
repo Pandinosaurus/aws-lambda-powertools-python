@@ -2,25 +2,28 @@
 AWS App Config configuration retrieval and caching utility
 """
 
+from __future__ import annotations
 
 import os
-from typing import TYPE_CHECKING, Any, Dict, Optional, Union
+import warnings
+from typing import TYPE_CHECKING
 
 import boto3
-from botocore.config import Config
-
-from aws_lambda_powertools.utilities.parameters.types import TransformOptions
-
-if TYPE_CHECKING:
-    from mypy_boto3_appconfigdata import AppConfigDataClient
 
 from aws_lambda_powertools.shared import constants
 from aws_lambda_powertools.shared.functions import (
     resolve_env_var_choice,
     resolve_max_age,
 )
+from aws_lambda_powertools.utilities.parameters.base import BaseProvider
+from aws_lambda_powertools.utilities.parameters.constants import DEFAULT_MAX_AGE_SECS, DEFAULT_PROVIDERS
+from aws_lambda_powertools.warnings import PowertoolsDeprecationWarning
 
-from .base import DEFAULT_MAX_AGE_SECS, DEFAULT_PROVIDERS, BaseProvider
+if TYPE_CHECKING:
+    from botocore.config import Config
+    from mypy_boto3_appconfigdata.client import AppConfigDataClient
+
+    from aws_lambda_powertools.utilities.parameters.types import TransformOptions
 
 
 class AppConfigProvider(BaseProvider):
@@ -68,15 +71,14 @@ class AppConfigProvider(BaseProvider):
 
     """
 
-    client: Any = None
-
     def __init__(
         self,
         environment: str,
-        application: Optional[str] = None,
-        config: Optional[Config] = None,
-        boto3_session: Optional[boto3.session.Session] = None,
-        boto3_client: Optional["AppConfigDataClient"] = None,
+        application: str | None = None,
+        config: Config | None = None,
+        boto_config: Config | None = None,
+        boto3_session: boto3.session.Session | None = None,
+        boto3_client: AppConfigDataClient | None = None,
     ):
         """
         Initialize the App Config client
@@ -84,20 +86,34 @@ class AppConfigProvider(BaseProvider):
 
         super().__init__()
 
-        self.client: "AppConfigDataClient" = self._build_boto3_client(
-            service_name="appconfigdata", client=boto3_client, session=boto3_session, config=config
-        )
+        if config:
+            warnings.warn(
+                message="The 'config' parameter is deprecated in V3 and will be removed in V4. "
+                "Please use 'boto_config' instead.",
+                category=PowertoolsDeprecationWarning,
+                stacklevel=2,
+            )
+
+        if boto3_client is None:
+            boto3_session = boto3_session or boto3.session.Session()
+            boto3_client = boto3_session.client("appconfigdata", config=boto_config or config)
+
+        self.client = boto3_client
 
         self.application = resolve_env_var_choice(
-            choice=application, env=os.getenv(constants.SERVICE_NAME_ENV, "service_undefined")
+            choice=application,
+            env=os.getenv(constants.SERVICE_NAME_ENV, "service_undefined"),
         )
         self.environment = environment
         self.current_version = ""
 
-        self._next_token = ""  # nosec - token for get_latest_configuration executions
-        self.last_returned_value = ""
+        self._next_token: dict[str, str] = {}  # nosec - token for get_latest_configuration executions
+        # Dict to store the recently retrieved value for a specific configuration.
+        self.last_returned_value: dict[str, bytes] = {}
 
-    def _get(self, name: str, **sdk_options) -> str:
+        super().__init__(client=self.client)
+
+    def _get(self, name: str, **sdk_options) -> bytes:
         """
         Retrieve a parameter value from AWS App config.
 
@@ -108,26 +124,30 @@ class AppConfigProvider(BaseProvider):
         sdk_options: dict, optional
             SDK options to propagate to `start_configuration_session` API call
         """
-        if not self._next_token:
+        if name not in self._next_token:
             sdk_options["ConfigurationProfileIdentifier"] = name
             sdk_options["ApplicationIdentifier"] = self.application
             sdk_options["EnvironmentIdentifier"] = self.environment
             response_configuration = self.client.start_configuration_session(**sdk_options)
-            self._next_token = response_configuration["InitialConfigurationToken"]
+            self._next_token[name] = response_configuration["InitialConfigurationToken"]
 
         # The new AppConfig APIs require two API calls to return the configuration
         # First we start the session and after that we retrieve the configuration
         # We need to store the token to use in the next execution
-        response = self.client.get_latest_configuration(ConfigurationToken=self._next_token)
+        response = self.client.get_latest_configuration(ConfigurationToken=self._next_token[name])
         return_value = response["Configuration"].read()
-        self._next_token = response["NextPollConfigurationToken"]
+        self._next_token[name] = response["NextPollConfigurationToken"]
 
+        # The return of get_latest_configuration can be null because this value is supposed to be cached
+        # on the customer side.
+        # We created a dictionary that stores the most recently retrieved value for a specific configuration.
+        # See https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/appconfigdata/client/get_latest_configuration.html
         if return_value:
-            self.last_returned_value = return_value
+            self.last_returned_value[name] = return_value
 
-        return self.last_returned_value
+        return self.last_returned_value[name]
 
-    def _get_multiple(self, path: str, **sdk_options) -> Dict[str, str]:
+    def _get_multiple(self, path: str, **sdk_options) -> dict[str, str]:
         """
         Retrieving multiple parameter values is not supported with AWS App Config Provider
         """
@@ -137,12 +157,12 @@ class AppConfigProvider(BaseProvider):
 def get_app_config(
     name: str,
     environment: str,
-    application: Optional[str] = None,
+    application: str | None = None,
     transform: TransformOptions = None,
     force_fetch: bool = False,
-    max_age: Optional[int] = None,
-    **sdk_options
-) -> Union[str, list, dict, bytes]:
+    max_age: int | None = None,
+    **sdk_options,
+) -> str | bytes | list | dict:
     """
     Retrieve a configuration value from AWS App Config.
 
@@ -199,5 +219,9 @@ def get_app_config(
         DEFAULT_PROVIDERS["appconfig"] = AppConfigProvider(environment=environment, application=application)
 
     return DEFAULT_PROVIDERS["appconfig"].get(
-        name, max_age=max_age, transform=transform, force_fetch=force_fetch, **sdk_options
+        name,
+        max_age=max_age,
+        transform=transform,
+        force_fetch=force_fetch,
+        **sdk_options,
     )

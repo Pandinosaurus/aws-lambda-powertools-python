@@ -9,7 +9,7 @@ from aws_lambda_powertools.utilities.data_classes.kinesis_stream_event import (
 )
 from aws_lambda_powertools.utilities.typing import LambdaContext
 
-processor = BatchProcessor(event_type=EventType.KinesisDataStreams)
+processor = BatchProcessor(event_type=EventType.KinesisDataStreams)  # (1)!
 tracer = Tracer()
 logger = Logger()
 
@@ -19,7 +19,6 @@ def record_handler(record: KinesisStreamRecord):
     logger.info(record.kinesis.data_as_text)
     payload: dict = record.kinesis.data_as_json()
     logger.info(payload)
-    ...
 
 
 @logger.inject_lambda_context

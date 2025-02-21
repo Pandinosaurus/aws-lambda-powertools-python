@@ -1,4 +1,4 @@
-const { PR_NUMBER, PR_TITLE } = require("./constants")
+const { PR_NUMBER, PR_TITLE, PR_LABELS } = require("./constants")
 
 module.exports = async ({github, context, core}) => {
     const FEAT_REGEX = /feat(\((.+)\))?(:.+)/
@@ -17,7 +17,10 @@ module.exports = async ({github, context, core}) => {
         "deprecated": DEPRECATED_REGEX,
     }
 
-    // Maintenance: We should keep track of modified PRs in case their titles change
+    // get PR labels from env
+    const prLabels = PR_LABELS.replaceAll("\"", "").split(",");
+    const labelKeys = Object.keys(labels);
+
     let miss = 0;
     try {
         for (const label in labels) {
@@ -25,6 +28,18 @@ module.exports = async ({github, context, core}) => {
             const matches = matcher.exec(PR_TITLE)
             if (matches != null) {
                 core.info(`Auto-labeling PR ${PR_NUMBER} with ${label}`)
+
+                for (const prLabel of prLabels) {
+                    if (labelKeys.includes(prLabel) && prLabel !== label) {
+                        core.info(`PR previously tagged with: ${prLabel}, removing.`);
+                        await github.rest.issues.removeLabel({
+                            issue_number: PR_NUMBER,
+                            owner: context.repo.owner,
+                            repo: context.repo.repo,
+                            name: prLabel
+                        })
+                    }
+                }
 
                 await github.rest.issues.addLabels({
                     issue_number: PR_NUMBER,

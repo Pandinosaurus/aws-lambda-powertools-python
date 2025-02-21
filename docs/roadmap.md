@@ -1,48 +1,38 @@
-<!-- markdownlint-disable MD043 -->
-
+<!-- markdownlint-disable MD043 MD041 -->
 ## Overview
 
-This is our public roadmap that outlines the high level direction we are working towards, namely [Themes](#themes). We update this document when our priorities change: security and stability is our top priority.
+Our public roadmap outlines the high level direction we are working towards. We update this document when our priorities change: security and stability are our top priority.
 
-[See our latest list of activities »](https://github.com/orgs/awslabs/projects/51/views/1?query=is%3Aopen+sort%3Aupdated-desc){target="_blank"}
+!!! info "For most up-to-date information, see our [board of activities](https://github.com/orgs/aws-powertools/projects/3?query=sort%3Aupdated-desc+is%3Aopen){target="_blank"}."
 
-## Themes
+### Key areas
 
-!!! info "Operational Excellence is priority number 1."
+Security and operational excellence take precedence above all else. This means bug fixing, stability, customer's support, and internal compliance may delay one or more key areas below.
 
-Themes are key activities maintainers are focusing on, besides bug reports. These are updated periodically and you can find the latest [under Epics in our public board](https://github.com/orgs/awslabs/projects/51/views/11?query=is%3Aopen+sort%3Aupdated-desc){target="_blank"}.
+**Missing something or want us to prioritize an existing area?**
 
-### Increased end-to-end coverage
+You can help us prioritize by [upvoting existing feature requests](https://github.com/aws-powertools/powertools-lambda-python/issues?q=is%3Aissue+is%3Aopen+sort%3Aupdated-desc+label%3Afeature-request), leaving a comment on what use cases it could unblock for you, and by joining our discussions on Discord.
 
-We continue to work on increasing end-to-end coverage for all features. Our main challenge is testing contracts for Lambda Event Sources (Parser, Event Source Data Classes) due to the lack of an official JSON schema.
+#### New features and utilities (p0)
 
-Some Lambda Event Sources require clusters (e.g., MSK) leading to additional delays of up to 30m in the end-to-end feedback loop. We need a RFC to start discussing viable options, and whether we should publish JSON Schemas from identified contracts.
+We will create new features and utilities to solve practical problems developers face when building serverless applications.
 
-### Observability providers
+- [ ] [Ability to buffer logs](https://github.com/aws-powertools/powertools-lambda-typescript/discussions/3410){target="_blank"}
+- [ ] Async event handlers to streamline complex event-driven workflows across SQS, EventBridge
 
-We want to extend Tracer, Metrics, and Logger to support any [observability provider](https://github.com/awslabs/aws-lambda-powertools-python/issues/1433). We need a RFC to define a contract and to identify two most requested observability providers that we can work with as an initial step.
+#### Powertools toolchain (p1)
 
-### Lambda Layer in release notes
+To improve Lambda development workflows and tooling capabilities, we aim to demonstrate how to simplify complex packaging methods, enable OpenAPI code generation for multiple Lambda functions, and introduce profiling tools to evaluate Powertools for AWS Lambda (Python) code implementation, tracking memory consumption and computational performance.
 
-We want to publish a JSON with a map of region and Lambda Layer ARN as a GitHub Release Note asset.
+- [ ] Create a comprehensive "Recipes" section with Lambda packaging tutorials for tools like uv, poetry, pants, providing clear, practical build strategies.
+- [ ] Enable OpenAPI generation capabilities to create specifications across multiple Lambda functions, eliminating LambdaLith architectural constraints.
 
-As of V2, we prioritize Lambda Layers being available before release notes are out. This is due to X86 and ARM64 compilation for smaller binaries and extra speed.
+#### Support for async (p2)
 
-This means we have room to include a JSON map for Lambda Layers and facilitate automation for customers wanting the latest version as soon as it's available.
+Python's serverless ecosystem is increasingly adopting asynchronous programming to deliver more efficient, non-blocking applications.
 
-### Strict typing
-
-We want to enable MyPy strict mode against the code base. We need a RFC to identify most critical areas to start, and do so gradually as to not impact new features and enhancements in parallel.
-
-This also means bringing `typing-extensions` as a runtime dependency to ensure complete coverage across all Python versions. Future wise, we might be able to experiment with [MyPyC](https://github.com/mypyc/mypyc) to compile less performing parts of the code base as a C-Extension.
-
-### New utilities
-
-With V2 launched, we want to resume working on new utilities, specifically but not limited to the most commonly asked: **(1)** [Sensitive Data Masking](https://github.com/awslabs/aws-lambda-powertools-python/issues/1173), **(2)** [Integration/End-to-end Testing](https://github.com/awslabs/aws-lambda-powertools-python/issues/1169), and **(3)** [Event Bridge](https://github.com/awslabs/aws-lambda-powertools-python/issues/1168).
-
-### Open iteration planning
-
-We want to experiment running a bi-weekly audio channel on [Discord](https://discord.gg/B8zZKbbyET) to help us prioritize backlog in real-time. Depending on attendance, we might switch to run an office hours instead.
+- [ ] Add support for aioboto3 or other tool, enabling efficient, non-blocking AWS service interactions in Lambda functions.
+- [ ] Write a PoC with Event Handler support for async.
 
 ## Roadmap status definition
 
@@ -54,13 +44,13 @@ graph LR
 <i>Visual representation</i>
 </center>
 
-Within our [public board](https://github.com/orgs/awslabs/projects/51/views/1?query=is%3Aopen+sort%3Aupdated-desc){target="_blank"}, you'll see the following values in the `Status` column:
+Within our [public board](https://github.com/orgs/aws-powertools/projects/3/views/1?query=is%3Aopen+sort%3Aupdated-desc){target="_blank"}, you'll see the following values in the `Status` column:
 
-* **Ideas**. Incoming and existing feature requests that are not being actively considered yet. These will be reviewed when bandwidth permits.
-* **Backlog**. Accepted feature requests or enhancements that we want to work on.
-* **Working on it**. Features or enhancements we're currently either researching or implementing it.
-* **Coming soon**. Any feature, enhancement, or bug fixes that have been merged and are coming in the next release.
-* **Shipped**. Features or enhancements that are now available in the most recent release.
+- **Ideas**. Incoming and existing feature requests that are not being actively considered yet. These will be reviewed when bandwidth permits.
+- **Backlog**. Accepted feature requests or enhancements that we want to work on.
+- **Working on it**. Features or enhancements we're currently either researching or implementing it.
+- **Coming soon**. Any feature, enhancement, or bug fixes that have been merged and are coming in the next release.
+- **Shipped**. Features or enhancements that are now available in the most recent release.
 
 > Tasks or issues with empty `Status` will be categorized in upcoming review cycles.
 
@@ -82,18 +72,18 @@ graph LR
 
 Our end-to-end mechanism follows four major steps:
 
-* **Feature Request**. Ideas start with a [feature request](https://github.com/awslabs/aws-lambda-powertools-python/issues/new?assignees=&labels=feature-request%2Ctriage&template=feature_request.yml&title=Feature+request%3A+TITLE){target="_blank"} to outline their use case at a high level. For complex use cases, maintainers might ask for/write a RFC.
-    * Maintainers review requests based on [project tenets](index.md#tenets){target="_blank"}, customers reaction (👍), and use cases.
-* **Request-for-comments (RFC)**. Design proposals use our [RFC issue template](https://github.com/awslabs/aws-lambda-powertools-python/issues/new?assignees=&labels=RFC%2Ctriage&template=rfc.yml&title=RFC%3A+TITLE){target="_blank"} to describe its implementation, challenges, developer experience, dependencies, and alternative solutions.
-    * This helps refine the initial idea with community feedback before a decision is made.
-* **Decision**. After carefully reviewing and discussing them, maintainers make a final decision on whether to start implementation, defer or reject it, and update everyone with the next steps.
-* **Implementation**. For approved features, maintainers give priority to the original authors for implementation unless it is a sensitive task that is best handled by maintainers.
+- **Feature Request**. Ideas start with a [feature request](https://github.com/aws-powertools/powertools-lambda-python/issues/new?assignees=&labels=feature-request%2Ctriage&template=feature_request.yml&title=Feature+request%3A+TITLE){target="_blank"} to outline their use case at a high level. For complex use cases, maintainers might ask for/write a RFC.
+    - Maintainers review requests based on [project tenets](index.md#tenets){target="_blank"}, customers reaction (👍), and use cases.
+- **Request-for-comments (RFC)**. Design proposals use our [RFC issue template](https://github.com/aws-powertools/powertools-lambda-python/issues/new?assignees=&labels=RFC%2Ctriage&template=rfc.yml&title=RFC%3A+TITLE){target="_blank"} to describe its implementation, challenges, developer experience, dependencies, and alternative solutions.
+    - This helps refine the initial idea with community feedback before a decision is made.
+- **Decision**. After carefully reviewing and discussing them, maintainers make a final decision on whether to start implementation, defer or reject it, and update everyone with the next steps.
+- **Implementation**. For approved features, maintainers give priority to the original authors for implementation unless it is a sensitive task that is best handled by maintainers.
 
-???+ info "See [Maintainers](https://github.com/awslabs/aws-lambda-powertools-python/blob/develop/MAINTAINERS.md) document to understand how we triage issues and pull requests, labels and governance."
+???+ info "See [Maintainers](https://github.com/aws-powertools/powertools-lambda-python/blob/develop/MAINTAINERS.md){target="_blank"} document to understand how we triage issues and pull requests, labels and governance."
 
 ## Disclaimer
 
-The AWS Lambda Powertools team values feedback and guidance from its community of users, although final decisions on inclusion into the project will be made by AWS.
+The Powertools for AWS Lambda (Python) team values feedback and guidance from its community of users, although final decisions on inclusion into the project will be made by AWS.
 
 We determine the high-level direction for our open roadmap based on customer feedback and popularity (👍🏽 and comments), security and operational impacts, and business value. Where features don’t meet our goals and longer-term strategy, we will communicate that clearly and openly as quickly as possible with an explanation of why the decision was made.
 

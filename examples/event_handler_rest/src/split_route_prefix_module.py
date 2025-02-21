@@ -1,3 +1,5 @@
+from urllib.parse import quote
+
 import requests
 from requests import Response
 
@@ -13,7 +15,7 @@ endpoint = "https://jsonplaceholder.typicode.com/todos"
 @router.get("/")
 @tracer.capture_method
 def get_todos():
-    api_key: str = router.current_event.get_header_value(name="X-Api-Key", case_sensitive=True, default_value="")
+    api_key = router.current_event.headers["X-Api-Key"]
 
     todos: Response = requests.get(endpoint, headers={"X-Api-Key": api_key})
     todos.raise_for_status()
@@ -25,8 +27,9 @@ def get_todos():
 @router.get("/<todo_id>")
 @tracer.capture_method
 def get_todo_by_id(todo_id: str):  # value come as str
-    api_key: str = router.current_event.get_header_value(name="X-Api-Key", case_sensitive=True, default_value="")  # type: ignore[assignment] # sentinel typing # noqa: E501
+    api_key = router.current_event.headers["X-Api-Key"]
 
+    todo_id = quote(todo_id, safe="")
     todos: Response = requests.get(f"{endpoint}/{todo_id}", headers={"X-Api-Key": api_key})
     todos.raise_for_status()
 

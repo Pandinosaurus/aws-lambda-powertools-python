@@ -1,4 +1,6 @@
-from typing import Any, Dict, List, Optional
+from __future__ import annotations
+
+from typing import Any
 
 from aws_lambda_powertools.utilities.data_classes.common import DictWrapper
 
@@ -56,20 +58,20 @@ class BaseTriggerEvent(DictWrapper):
 
 class PreSignUpTriggerEventRequest(DictWrapper):
     @property
-    def user_attributes(self) -> Dict[str, str]:
+    def user_attributes(self) -> dict[str, str]:
         """One or more name-value pairs representing user attributes. The attribute names are the keys."""
         return self["request"]["userAttributes"]
 
     @property
-    def validation_data(self) -> Optional[Dict[str, str]]:
+    def validation_data(self) -> dict[str, str]:
         """One or more name-value pairs containing the validation data in the request to register a user."""
-        return self["request"].get("validationData")
+        return self["request"].get("validationData") or {}
 
     @property
-    def client_metadata(self) -> Optional[Dict[str, str]]:
+    def client_metadata(self) -> dict[str, str]:
         """One or more key-value pairs that you can provide as custom input to the Lambda function
         that you specify for the pre sign-up trigger."""
-        return self["request"].get("clientMetadata")
+        return self["request"].get("clientMetadata") or {}
 
 
 class PreSignUpTriggerEventResponse(DictWrapper):
@@ -128,15 +130,15 @@ class PreSignUpTriggerEvent(BaseTriggerEvent):
 
 class PostConfirmationTriggerEventRequest(DictWrapper):
     @property
-    def user_attributes(self) -> Dict[str, str]:
+    def user_attributes(self) -> dict[str, str]:
         """One or more name-value pairs representing user attributes. The attribute names are the keys."""
         return self["request"]["userAttributes"]
 
     @property
-    def client_metadata(self) -> Optional[Dict[str, str]]:
+    def client_metadata(self) -> dict[str, str]:
         """One or more key-value pairs that you can provide as custom input to the Lambda function
         that you specify for the post confirmation trigger."""
-        return self["request"].get("clientMetadata")
+        return self["request"].get("clientMetadata") or {}
 
 
 class PostConfirmationTriggerEvent(BaseTriggerEvent):
@@ -165,31 +167,31 @@ class UserMigrationTriggerEventRequest(DictWrapper):
         return self["request"]["password"]
 
     @property
-    def validation_data(self) -> Optional[Dict[str, str]]:
+    def validation_data(self) -> dict[str, str]:
         """One or more name-value pairs containing the validation data in the request to register a user."""
-        return self["request"].get("validationData")
+        return self["request"].get("validationData") or {}
 
     @property
-    def client_metadata(self) -> Optional[Dict[str, str]]:
+    def client_metadata(self) -> dict[str, str]:
         """One or more key-value pairs that you can provide as custom input to the Lambda function
         that you specify for the pre sign-up trigger."""
-        return self["request"].get("clientMetadata")
+        return self["request"].get("clientMetadata") or {}
 
 
 class UserMigrationTriggerEventResponse(DictWrapper):
     @property
-    def user_attributes(self) -> Dict[str, str]:
+    def user_attributes(self) -> dict[str, str]:
         return self["response"]["userAttributes"]
 
     @user_attributes.setter
-    def user_attributes(self, value: Dict[str, str]):
+    def user_attributes(self, value: dict[str, str]):
         """It must contain one or more name-value pairs representing user attributes to be stored in the
         user profile in your user pool. You can include both standard and custom user attributes.
         Custom attributes require the custom: prefix to distinguish them from standard attributes."""
         self["response"]["userAttributes"] = value
 
     @property
-    def final_user_status(self) -> Optional[str]:
+    def final_user_status(self) -> str | None:
         return self["response"].get("finalUserStatus")
 
     @final_user_status.setter
@@ -203,7 +205,7 @@ class UserMigrationTriggerEventResponse(DictWrapper):
         self["response"]["finalUserStatus"] = value
 
     @property
-    def message_action(self) -> Optional[str]:
+    def message_action(self) -> str | None:
         return self["response"].get("messageAction")
 
     @message_action.setter
@@ -213,17 +215,17 @@ class UserMigrationTriggerEventResponse(DictWrapper):
         self["response"]["messageAction"] = value
 
     @property
-    def desired_delivery_mediums(self) -> Optional[List[str]]:
-        return self["response"].get("desiredDeliveryMediums")
+    def desired_delivery_mediums(self) -> list[str]:
+        return self["response"].get("desiredDeliveryMediums") or []
 
     @desired_delivery_mediums.setter
-    def desired_delivery_mediums(self, value: List[str]):
+    def desired_delivery_mediums(self, value: list[str]):
         """This attribute can be set to "EMAIL" to send the welcome message by email, or "SMS" to send the
         welcome message by SMS. If this attribute is not returned, the welcome message will be sent by SMS."""
         self["response"]["desiredDeliveryMediums"] = value
 
     @property
-    def force_alias_creation(self) -> Optional[bool]:
+    def force_alias_creation(self) -> bool | None:
         return self["response"].get("forceAliasCreation")
 
     @force_alias_creation.setter
@@ -238,6 +240,18 @@ class UserMigrationTriggerEventResponse(DictWrapper):
         If this attribute is not returned, it is assumed to be "false".
         """
         self["response"]["forceAliasCreation"] = value
+
+    @property
+    def enable_sms_mfa(self) -> bool | None:
+        return self["response"].get("enableSMSMFA")
+
+    @enable_sms_mfa.setter
+    def enable_sms_mfa(self, value: bool):
+        """Set this parameter to "true" to require that your migrated user complete SMS text message multi-factor
+        authentication (MFA) to sign in. Your user pool must have MFA enabled. Your user's attributes
+        in the request parameters must include a phone number, or else the migration of that user will fail.
+        """
+        self["response"]["enableSMSMFA"] = value
 
 
 class UserMigrationTriggerEvent(BaseTriggerEvent):
@@ -271,20 +285,25 @@ class CustomMessageTriggerEventRequest(DictWrapper):
         return self["request"]["codeParameter"]
 
     @property
+    def link_parameter(self) -> str:
+        """A string for you to use as a placeholder for the verification link in the custom message."""
+        return self["request"]["linkParameter"]
+
+    @property
     def username_parameter(self) -> str:
         """The username parameter. It is a required request parameter for the admin create user flow."""
         return self["request"]["usernameParameter"]
 
     @property
-    def user_attributes(self) -> Dict[str, str]:
+    def user_attributes(self) -> dict[str, str]:
         """One or more name-value pairs representing user attributes. The attribute names are the keys."""
         return self["request"]["userAttributes"]
 
     @property
-    def client_metadata(self) -> Optional[Dict[str, str]]:
+    def client_metadata(self) -> dict[str, str]:
         """One or more key-value pairs that you can provide as custom input to the Lambda function
         that you specify for the pre sign-up trigger."""
-        return self["request"].get("clientMetadata")
+        return self["request"].get("clientMetadata") or {}
 
 
 class CustomMessageTriggerEventResponse(DictWrapper):
@@ -351,19 +370,19 @@ class CustomMessageTriggerEvent(BaseTriggerEvent):
 
 class PreAuthenticationTriggerEventRequest(DictWrapper):
     @property
-    def user_not_found(self) -> Optional[bool]:
+    def user_not_found(self) -> bool | None:
         """This boolean is populated when PreventUserExistenceErrors is set to ENABLED for your User Pool client."""
         return self["request"].get("userNotFound")
 
     @property
-    def user_attributes(self) -> Dict[str, str]:
+    def user_attributes(self) -> dict[str, str]:
         """One or more name-value pairs representing user attributes."""
         return self["request"]["userAttributes"]
 
     @property
-    def validation_data(self) -> Optional[Dict[str, str]]:
+    def validation_data(self) -> dict[str, str]:
         """One or more key-value pairs containing the validation data in the user's sign-in request."""
-        return self["request"].get("validationData")
+        return self["request"].get("validationData") or {}
 
 
 class PreAuthenticationTriggerEvent(BaseTriggerEvent):
@@ -397,15 +416,15 @@ class PostAuthenticationTriggerEventRequest(DictWrapper):
         return self["request"]["newDeviceUsed"]
 
     @property
-    def user_attributes(self) -> Dict[str, str]:
+    def user_attributes(self) -> dict[str, str]:
         """One or more name-value pairs representing user attributes."""
         return self["request"]["userAttributes"]
 
     @property
-    def client_metadata(self) -> Optional[Dict[str, str]]:
+    def client_metadata(self) -> dict[str, str]:
         """One or more key-value pairs that you can provide as custom input to the Lambda function
         that you specify for the post authentication trigger."""
-        return self["request"].get("clientMetadata")
+        return self["request"].get("clientMetadata") or {}
 
 
 class PostAuthenticationTriggerEvent(BaseTriggerEvent):
@@ -433,17 +452,17 @@ class PostAuthenticationTriggerEvent(BaseTriggerEvent):
 
 class GroupOverrideDetails(DictWrapper):
     @property
-    def groups_to_override(self) -> Optional[List[str]]:
+    def groups_to_override(self) -> list[str]:
         """A list of the group names that are associated with the user that the identity token is issued for."""
-        return self.get("groupsToOverride")
+        return self.get("groupsToOverride") or []
 
     @property
-    def iam_roles_to_override(self) -> Optional[List[str]]:
+    def iam_roles_to_override(self) -> list[str]:
         """A list of the current IAM roles associated with these groups."""
-        return self.get("iamRolesToOverride")
+        return self.get("iamRolesToOverride") or []
 
     @property
-    def preferred_role(self) -> Optional[str]:
+    def preferred_role(self) -> str | None:
         """A string indicating the preferred IAM role."""
         return self.get("preferredRole")
 
@@ -455,44 +474,54 @@ class PreTokenGenerationTriggerEventRequest(DictWrapper):
         return GroupOverrideDetails(self["request"]["groupConfiguration"])
 
     @property
-    def user_attributes(self) -> Dict[str, str]:
+    def user_attributes(self) -> dict[str, str]:
         """One or more name-value pairs representing user attributes."""
-        return self["request"]["userAttributes"]
+        return self["request"].get("userAttributes") or {}
 
     @property
-    def client_metadata(self) -> Optional[Dict[str, str]]:
+    def client_metadata(self) -> dict[str, str]:
         """One or more key-value pairs that you can provide as custom input to the Lambda function
         that you specify for the pre token generation trigger."""
-        return self["request"].get("clientMetadata")
+        return self["request"].get("clientMetadata") or {}
+
+
+class PreTokenGenerationTriggerV2EventRequest(PreTokenGenerationTriggerEventRequest):
+    @property
+    def scopes(self) -> list[str]:
+        """Your user's OAuth 2.0 scopes. The scopes that are present in an access token are
+        the user pool standard and custom scopes that your user requested,
+        and that you authorized your app client to issue.
+        """
+        return self["request"].get("scopes")
 
 
 class ClaimsOverrideDetails(DictWrapper):
     @property
-    def claims_to_add_or_override(self) -> Optional[Dict[str, str]]:
-        return self.get("claimsToAddOrOverride")
+    def claims_to_add_or_override(self) -> dict[str, str]:
+        return self.get("claimsToAddOrOverride") or {}
 
     @claims_to_add_or_override.setter
-    def claims_to_add_or_override(self, value: Dict[str, str]):
+    def claims_to_add_or_override(self, value: dict[str, str]):
         """A map of one or more key-value pairs of claims to add or override.
         For group related claims, use groupOverrideDetails instead."""
         self._data["claimsToAddOrOverride"] = value
 
     @property
-    def claims_to_suppress(self) -> Optional[List[str]]:
-        return self.get("claimsToSuppress")
+    def claims_to_suppress(self) -> list[str]:
+        return self.get("claimsToSuppress") or []
 
     @claims_to_suppress.setter
-    def claims_to_suppress(self, value: List[str]):
+    def claims_to_suppress(self, value: list[str]):
         """A list that contains claims to be suppressed from the identity token."""
         self._data["claimsToSuppress"] = value
 
     @property
-    def group_configuration(self) -> Optional[GroupOverrideDetails]:
+    def group_configuration(self) -> GroupOverrideDetails | None:
         group_override_details = self.get("groupOverrideDetails")
         return None if group_override_details is None else GroupOverrideDetails(group_override_details)
 
     @group_configuration.setter
-    def group_configuration(self, value: Dict[str, Any]):
+    def group_configuration(self, value: dict[str, Any]):
         """The output object containing the current group configuration.
 
         It includes groupsToOverride, iamRolesToOverride, and preferredRole.
@@ -504,12 +533,129 @@ class ClaimsOverrideDetails(DictWrapper):
         """
         self._data["groupOverrideDetails"] = value
 
-    def set_group_configuration_groups_to_override(self, value: List[str]):
+    def set_group_configuration_groups_to_override(self, value: list[str]):
         """A list of the group names that are associated with the user that the identity token is issued for."""
         self._data.setdefault("groupOverrideDetails", {})
         self["groupOverrideDetails"]["groupsToOverride"] = value
 
-    def set_group_configuration_iam_roles_to_override(self, value: List[str]):
+    def set_group_configuration_iam_roles_to_override(self, value: list[str]):
+        """A list of the current IAM roles associated with these groups."""
+        self._data.setdefault("groupOverrideDetails", {})
+        self["groupOverrideDetails"]["iamRolesToOverride"] = value
+
+    def set_group_configuration_preferred_role(self, value: str):
+        """A string indicating the preferred IAM role."""
+        self._data.setdefault("groupOverrideDetails", {})
+        self["groupOverrideDetails"]["preferredRole"] = value
+
+
+class TokenClaimsAndScopeOverrideDetails(DictWrapper):
+    @property
+    def claims_to_add_or_override(self) -> dict[str, str]:
+        return self.get("claimsToAddOrOverride") or {}
+
+    @claims_to_add_or_override.setter
+    def claims_to_add_or_override(self, value: dict[str, str]):
+        """A map of one or more key-value pairs of claims to add or override.
+        For group related claims, use groupOverrideDetails instead."""
+        self._data["claimsToAddOrOverride"] = value
+
+    @property
+    def claims_to_suppress(self) -> list[str]:
+        return self.get("claimsToSuppress") or []
+
+    @claims_to_suppress.setter
+    def claims_to_suppress(self, value: list[str]):
+        """A list that contains claims to be suppressed from the identity token."""
+        self._data["claimsToSuppress"] = value
+
+    @property
+    def scopes_to_add(self) -> list[str]:
+        return self.get("scopesToAdd") or []
+
+    @scopes_to_add.setter
+    def scopes_to_add(self, value: list[str]):
+        self._data["scopesToAdd"] = value
+
+    @property
+    def scopes_to_suppress(self) -> list[str]:
+        return self.get("scopesToSuppress") or []
+
+    @scopes_to_suppress.setter
+    def scopes_to_suppress(self, value: list[str]):
+        self._data["scopesToSuppress"] = value
+
+
+class ClaimsAndScopeOverrideDetails(DictWrapper):
+
+    @property
+    def id_token_generation(self) -> TokenClaimsAndScopeOverrideDetails | None:
+        id_token_generation_details = self._data.get("idTokenGeneration")
+        return (
+            None
+            if id_token_generation_details is None
+            else TokenClaimsAndScopeOverrideDetails(id_token_generation_details)
+        )
+
+    @id_token_generation.setter
+    def id_token_generation(self, value: dict[str, Any]):
+        """The output object containing the current id token's claims and scope configuration.
+
+        It includes claimsToAddOrOverride, claimsToSuppress, scopesToAdd and scopesToSupprress.
+
+        The tokenClaimsAndScopeOverrideDetails object is replaced with the one you provide.
+        If you provide an empty or null object in the response, then the groups are suppressed.
+        To leave the existing group configuration as is, copy the value of the token's object
+        to the tokenClaimsAndScopeOverrideDetails object in the response, and pass it back to the service.
+        """
+        self._data["idTokenGeneration"] = value
+
+    @property
+    def access_token_generation(self) -> TokenClaimsAndScopeOverrideDetails | None:
+        access_token_generation_details = self._data.get("accessTokenGeneration")
+        return (
+            None
+            if access_token_generation_details is None
+            else TokenClaimsAndScopeOverrideDetails(access_token_generation_details)
+        )
+
+    @access_token_generation.setter
+    def access_token_generation(self, value: dict[str, Any]):
+        """The output object containing the current access token's claims and scope configuration.
+
+        It includes claimsToAddOrOverride, claimsToSuppress, scopesToAdd and scopesToSupprress.
+
+        The tokenClaimsAndScopeOverrideDetails object is replaced with the one you provide.
+        If you provide an empty or null object in the response, then the groups are suppressed.
+        To leave the existing group configuration as is, copy the value of the token's object to
+        the tokenClaimsAndScopeOverrideDetails object in the response, and pass it back to the service.
+        """
+        self._data["accessTokenGeneration"] = value
+
+    @property
+    def group_configuration(self) -> GroupOverrideDetails | None:
+        group_override_details = self.get("groupOverrideDetails")
+        return None if group_override_details is None else GroupOverrideDetails(group_override_details)
+
+    @group_configuration.setter
+    def group_configuration(self, value: dict[str, Any]):
+        """The output object containing the current group configuration.
+
+        It includes groupsToOverride, iamRolesToOverride, and preferredRole.
+
+        The groupOverrideDetails object is replaced with the one you provide. If you provide an empty or null
+        object in the response, then the groups are suppressed. To leave the existing group configuration
+        as is, copy the value of the request's groupConfiguration object to the groupOverrideDetails object
+        in the response, and pass it back to the service.
+        """
+        self._data["groupOverrideDetails"] = value
+
+    def set_group_configuration_groups_to_override(self, value: list[str]):
+        """A list of the group names that are associated with the user that the identity token is issued for."""
+        self._data.setdefault("groupOverrideDetails", {})
+        self["groupOverrideDetails"]["groupsToOverride"] = value
+
+    def set_group_configuration_iam_roles_to_override(self, value: list[str]):
         """A list of the current IAM roles associated with these groups."""
         self._data.setdefault("groupOverrideDetails", {})
         self["groupOverrideDetails"]["iamRolesToOverride"] = value
@@ -527,6 +673,15 @@ class PreTokenGenerationTriggerEventResponse(DictWrapper):
         if self._data["response"].get("claimsOverrideDetails") is None:
             self._data["response"]["claimsOverrideDetails"] = {}
         return ClaimsOverrideDetails(self._data["response"]["claimsOverrideDetails"])
+
+
+class PreTokenGenerationTriggerV2EventResponse(DictWrapper):
+    @property
+    def claims_scope_override_details(self) -> ClaimsAndScopeOverrideDetails:
+        # Ensure we have a `claimsAndScopeOverrideDetails` element and is not set to None
+        if self._data["response"].get("claimsAndScopeOverrideDetails") is None:
+            self._data["response"]["claimsAndScopeOverrideDetails"] = {}
+        return ClaimsAndScopeOverrideDetails(self._data["response"]["claimsAndScopeOverrideDetails"])
 
 
 class PreTokenGenerationTriggerEvent(BaseTriggerEvent):
@@ -561,6 +716,38 @@ class PreTokenGenerationTriggerEvent(BaseTriggerEvent):
         return PreTokenGenerationTriggerEventResponse(self._data)
 
 
+class PreTokenGenerationV2TriggerEvent(BaseTriggerEvent):
+    """Pre Token Generation Lambda Trigger for the V2 Event
+
+    Amazon Cognito invokes this trigger before token generation allowing you to customize identity token claims.
+
+    Notes:
+    ----
+    `triggerSource` can be one of the following:
+
+    - `TokenGeneration_HostedAuth` Called during authentication from the Amazon Cognito hosted UI sign-in page.
+    - `TokenGeneration_Authentication` Called after user authentication flows have completed.
+    - `TokenGeneration_NewPasswordChallenge` Called after the user is created by an admin. This flow is invoked
+       when the user has to change a temporary password.
+    - `TokenGeneration_AuthenticateDevice` Called at the end of the authentication of a user device.
+    - `TokenGeneration_RefreshTokens` Called when a user tries to refresh the identity and access tokens.
+
+    Documentation:
+    --------------
+    - https://docs.aws.amazon.com/cognito/latest/developerguide/user-pool-lambda-pre-token-generation.html
+    """
+
+    @property
+    def request(self) -> PreTokenGenerationTriggerV2EventRequest:
+        """Pre Token Generation Request V2 Parameters"""
+        return PreTokenGenerationTriggerV2EventRequest(self._data)
+
+    @property
+    def response(self) -> PreTokenGenerationTriggerV2EventResponse:
+        """Pre Token Generation Response V2 Parameters"""
+        return PreTokenGenerationTriggerV2EventResponse(self._data)
+
+
 class ChallengeResult(DictWrapper):
     @property
     def challenge_name(self) -> str:
@@ -576,33 +763,33 @@ class ChallengeResult(DictWrapper):
         return bool(self["challengeResult"])
 
     @property
-    def challenge_metadata(self) -> Optional[str]:
+    def challenge_metadata(self) -> str | None:
         """Your name for the custom challenge. Used only if challengeName is CUSTOM_CHALLENGE."""
         return self.get("challengeMetadata")
 
 
 class DefineAuthChallengeTriggerEventRequest(DictWrapper):
     @property
-    def user_attributes(self) -> Dict[str, str]:
+    def user_attributes(self) -> dict[str, str]:
         """One or more name-value pairs representing user attributes. The attribute names are the keys."""
         return self["request"]["userAttributes"]
 
     @property
-    def user_not_found(self) -> Optional[bool]:
+    def user_not_found(self) -> bool | None:
         """A Boolean that is populated when PreventUserExistenceErrors is set to ENABLED for your user pool client.
         A value of true means that the user id (username, email address, etc.) did not match any existing users."""
         return self["request"].get("userNotFound")
 
     @property
-    def session(self) -> List[ChallengeResult]:
+    def session(self) -> list[ChallengeResult]:
         """An array of ChallengeResult elements, each of which contains the following elements:"""
         return [ChallengeResult(result) for result in self["request"]["session"]]
 
     @property
-    def client_metadata(self) -> Optional[Dict[str, str]]:
+    def client_metadata(self) -> dict[str, str]:
         """One or more key-value pairs that you can provide as custom input to the Lambda function that you specify
         for the defined auth challenge trigger."""
-        return self["request"].get("clientMetadata")
+        return self["request"].get("clientMetadata") or {}
 
 
 class DefineAuthChallengeTriggerEventResponse(DictWrapper):
@@ -665,12 +852,12 @@ class DefineAuthChallengeTriggerEvent(BaseTriggerEvent):
 
 class CreateAuthChallengeTriggerEventRequest(DictWrapper):
     @property
-    def user_attributes(self) -> Dict[str, str]:
+    def user_attributes(self) -> dict[str, str]:
         """One or more name-value pairs representing user attributes. The attribute names are the keys."""
         return self["request"]["userAttributes"]
 
     @property
-    def user_not_found(self) -> Optional[bool]:
+    def user_not_found(self) -> bool | None:
         """This boolean is populated when PreventUserExistenceErrors is set to ENABLED for your User Pool client."""
         return self["request"].get("userNotFound")
 
@@ -680,35 +867,35 @@ class CreateAuthChallengeTriggerEventRequest(DictWrapper):
         return self["request"]["challengeName"]
 
     @property
-    def session(self) -> List[ChallengeResult]:
+    def session(self) -> list[ChallengeResult]:
         """An array of ChallengeResult elements, each of which contains the following elements:"""
         return [ChallengeResult(result) for result in self["request"]["session"]]
 
     @property
-    def client_metadata(self) -> Optional[Dict[str, str]]:
+    def client_metadata(self) -> dict[str, str]:
         """One or more key-value pairs that you can provide as custom input to the Lambda function that you
         specify for the creation auth challenge trigger."""
-        return self["request"].get("clientMetadata")
+        return self["request"].get("clientMetadata") or {}
 
 
 class CreateAuthChallengeTriggerEventResponse(DictWrapper):
     @property
-    def public_challenge_parameters(self) -> Dict[str, str]:
+    def public_challenge_parameters(self) -> dict[str, str]:
         return self["response"]["publicChallengeParameters"]
 
     @public_challenge_parameters.setter
-    def public_challenge_parameters(self, value: Dict[str, str]):
+    def public_challenge_parameters(self, value: dict[str, str]):
         """One or more key-value pairs for the client app to use in the challenge to be presented to the user.
         This parameter should contain all the necessary information to accurately present the challenge to
         the user."""
         self["response"]["publicChallengeParameters"] = value
 
     @property
-    def private_challenge_parameters(self) -> Dict[str, str]:
+    def private_challenge_parameters(self) -> dict[str, str]:
         return self["response"]["privateChallengeParameters"]
 
     @private_challenge_parameters.setter
-    def private_challenge_parameters(self, value: Dict[str, str]):
+    def private_challenge_parameters(self, value: dict[str, str]):
         """This parameter is only used by the "Verify Auth Challenge" Response Lambda trigger.
         This parameter should contain all the information that is required to validate the user's
         response to the challenge. In other words, the publicChallengeParameters parameter contains the
@@ -757,12 +944,12 @@ class CreateAuthChallengeTriggerEvent(BaseTriggerEvent):
 
 class VerifyAuthChallengeResponseTriggerEventRequest(DictWrapper):
     @property
-    def user_attributes(self) -> Dict[str, str]:
+    def user_attributes(self) -> dict[str, str]:
         """One or more name-value pairs representing user attributes. The attribute names are the keys."""
         return self["request"]["userAttributes"]
 
     @property
-    def private_challenge_parameters(self) -> Dict[str, str]:
+    def private_challenge_parameters(self) -> dict[str, str]:
         """This parameter comes from the Create Auth Challenge trigger, and is
         compared against a user’s challengeAnswer to determine whether the user passed the challenge."""
         return self["request"]["privateChallengeParameters"]
@@ -773,13 +960,13 @@ class VerifyAuthChallengeResponseTriggerEventRequest(DictWrapper):
         return self["request"]["challengeAnswer"]
 
     @property
-    def client_metadata(self) -> Optional[Dict[str, str]]:
+    def client_metadata(self) -> dict[str, str]:
         """One or more key-value pairs that you can provide as custom input to the Lambda function that
         you specify for the "Verify Auth Challenge" trigger."""
-        return self["request"].get("clientMetadata")
+        return self["request"].get("clientMetadata") or {}
 
     @property
-    def user_not_found(self) -> Optional[bool]:
+    def user_not_found(self) -> bool | None:
         """This boolean is populated when PreventUserExistenceErrors is set to ENABLED for your User Pool client."""
         return self["request"].get("userNotFound")
 
@@ -822,3 +1009,77 @@ class VerifyAuthChallengeResponseTriggerEvent(BaseTriggerEvent):
     def response(self) -> VerifyAuthChallengeResponseTriggerEventResponse:
         """Verify Auth Challenge Response Parameters"""
         return VerifyAuthChallengeResponseTriggerEventResponse(self._data)
+
+
+class CustomEmailSenderTriggerEventRequest(DictWrapper):
+    @property
+    def type(self) -> str:
+        """The request version. For a custom email sender event, the value of this string
+        is always customEmailSenderRequestV1.
+        """
+        return self["request"]["type"]
+
+    @property
+    def code(self) -> str:
+        """The encrypted code that your function can decrypt and send to your user."""
+        return self["request"]["code"]
+
+    @property
+    def user_attributes(self) -> dict[str, str]:
+        """One or more name-value pairs representing user attributes. The attribute names are the keys."""
+        return self["request"]["userAttributes"]
+
+    @property
+    def client_metadata(self) -> dict[str, str]:
+        """One or more key-value pairs that you can provide as custom input to the
+        custom email sender Lambda function trigger. To pass this data to your Lambda function,
+        you can use the ClientMetadata parameter in the AdminRespondToAuthChallenge and
+        RespondToAuthChallenge API actions. Amazon Cognito doesn't include data from the
+        ClientMetadata parameter in AdminInitiateAuth and InitiateAuth API operations
+        in the request that it passes to the post authentication function.
+        """
+        return self["request"].get("clientMetadata") or {}
+
+
+class CustomEmailSenderTriggerEvent(BaseTriggerEvent):
+    @property
+    def request(self) -> CustomEmailSenderTriggerEventRequest:
+        """Custom Email Sender Request Parameters"""
+        return CustomEmailSenderTriggerEventRequest(self._data)
+
+
+class CustomSMSSenderTriggerEventRequest(DictWrapper):
+    @property
+    def type(self) -> str:
+        """The request version. For a custom SMS sender event, the value of this string is always
+        customSMSSenderRequestV1.
+        """
+        return self["request"]["type"]
+
+    @property
+    def code(self) -> str:
+        """The encrypted code that your function can decrypt and send to your user."""
+        return self["request"]["code"]
+
+    @property
+    def user_attributes(self) -> dict[str, str]:
+        """One or more name-value pairs representing user attributes. The attribute names are the keys."""
+        return self["request"].get("userAttributes") or {}
+
+    @property
+    def client_metadata(self) -> dict[str, str]:
+        """One or more key-value pairs that you can provide as custom input to the
+        custom SMS sender Lambda function trigger. To pass this data to your Lambda function,
+        you can use the ClientMetadata parameter in the AdminRespondToAuthChallenge and
+        RespondToAuthChallenge API actions. Amazon Cognito doesn't include data from the
+        ClientMetadata parameter in AdminInitiateAuth and InitiateAuth API operations
+        in the request that it passes to the post authentication function.
+        """
+        return self["request"].get("clientMetadata") or {}
+
+
+class CustomSMSSenderTriggerEvent(BaseTriggerEvent):
+    @property
+    def request(self) -> CustomSMSSenderTriggerEventRequest:
+        """Custom SMS Sender Request Parameters"""
+        return CustomSMSSenderTriggerEventRequest(self._data)

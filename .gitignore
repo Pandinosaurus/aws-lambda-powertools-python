@@ -252,6 +252,7 @@ dmypy.json
 .pyre/
 
 ### VisualStudioCode ###
+.vscode
 .vscode/*
 !.vscode/tasks.json
 !.vscode/launch.json
@@ -314,3 +315,6 @@ examples/**/sam/.aws-sam
 cdk.out
 # NOTE: different accounts will be used for E2E thus creating unnecessary git clutter
 cdk.context.json
+
+# vim
+*.swp

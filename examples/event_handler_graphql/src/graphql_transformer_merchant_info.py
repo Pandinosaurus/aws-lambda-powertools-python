@@ -1,11 +1,4 @@
-import sys
-
-if sys.version_info >= (3, 8):
-    from typing import TypedDict
-else:
-    from typing_extensions import TypedDict
-
-from typing import List
+from typing import List, TypedDict
 
 from aws_lambda_powertools import Logger, Tracer
 from aws_lambda_powertools.event_handler import AppSyncResolver
